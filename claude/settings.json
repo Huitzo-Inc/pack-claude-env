@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "pack-docs": {
+      "command": "venv/bin/your-docs-mcp",
+      "env": {
+        "DOCS_ROOT": "./docs",
+        "MCP_DOCS_CACHE_TTL": "300",
+        "LOG_LEVEL": "WARNING"
+      }
+    }
+  }
+}

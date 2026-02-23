@@ -1,5 +1,75 @@
 # Intelligence Pack Development
 
+## Development Workflow: Documentation First
+
+**Every new command or feature MUST start with documentation before implementation.**
+
+1. **Draft docs** — Write the command's documentation in `docs/commands/` first
+2. **Review docs** — Use the `docs-writer` agent or `/draft-docs` skill to review
+3. **Implement** — Write the command code based on the approved documentation
+4. **Test** — Write tests that validate the documented behavior
+5. **Validate** — Run `/validate-pack` to ensure everything is consistent
+
+This is non-negotiable. Documentation defines the contract. Code implements it.
+
+## Documentation Server (your-docs-mcp)
+
+This pack includes an MCP documentation server. It makes your `docs/` folder accessible to Claude Code for searching, navigating, and referencing.
+
+```bash
+# Start the docs server (if not auto-started by Claude Code)
+source venv/bin/activate
+your-docs-server
+```
+
+The server provides tools like `search_documentation`, `get_document`, `navigate_to`, and `get_table_of_contents` — Claude Code uses these automatically.
+
+### Documentation Structure
+
+```
+docs/
+├── README.md              # Pack overview, purpose, target users
+├── commands/
+│   ├── README.md          # Commands overview
+│   └── {command-name}.md  # Per-command documentation
+└── guides/
+    ├── README.md          # Guides overview
+    └── getting-started.md # How to use this pack
+```
+
+### Documentation Format
+
+Every doc file uses YAML frontmatter:
+
+```markdown
+---
+title: Command Name
+tags: [command, category]
+category: commands
+order: 1
+---
+
+# Command Name
+
+Description of what this command does and why.
+
+## Arguments
+
+| Argument | Type | Required | Description |
+|----------|------|----------|-------------|
+| `input` | string | yes | What this argument is for |
+
+## Returns
+
+Description of the return value structure.
+
+## Examples
+
+\`\`\`
+Example usage and expected output.
+\`\`\`
+```
+
 ## Build / Test / Lint
 
 ```bash
@@ -112,7 +182,7 @@ Module: module_name
 Description: Brief description
 
 Implements:
-    - docs/sdk/commands.md
+    - docs/commands/action-noun.md
 """
 ```
 
@@ -120,6 +190,12 @@ Implements:
 
 ```
 my-pack/
+├── docs/                    # Documentation (write FIRST)
+│   ├── README.md
+│   ├── commands/
+│   │   └── hello.md
+│   └── guides/
+│       └── getting-started.md
 ├── src/my_pack/
 │   ├── __init__.py
 │   └── commands/
@@ -138,4 +214,5 @@ my-pack/
 - All code must pass `ruff check .` and `ruff format --check .`
 - All code must pass `mypy --strict src/`
 - All commands must have corresponding tests
+- All commands must have corresponding documentation in `docs/commands/`
 - No backwards compatibility hacks — refactor cleanly
