@@ -1,0 +1,6 @@
+# Claude Code auto-memory (developer-specific)
+.claude/agent-memory*/
+
+# OS
+.DS_Store
+Thumbs.db
