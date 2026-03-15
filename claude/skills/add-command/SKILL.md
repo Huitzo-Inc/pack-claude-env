@@ -88,10 +88,23 @@ class Test{CommandClassName}:
     enabled: true
 ```
 
-8. **Run a quick validation** to make sure everything compiles:
+8. **Update `pyproject.toml`** to register the entry point under `[project.entry-points."huitzo.commands"]`:
+
+```toml
+"@{namespace}/{pack-name}/{command-name}" = "{module_name}.commands.{command_identifier}:{function_name}"
+```
+
+Key naming rules:
+- The entry point **key** uses the kebab-case command name (e.g., `"@ernessola/claims-v1/save-visit"`)
+- The entry point **value** uses underscores for both the module path and the function name (e.g., `"claims_v1.commands.save_visit:save_visit"`)
+- Never use hyphens in the Python module path or function name — they are invalid Python identifiers
+
+If the `[project.entry-points."huitzo.commands"]` section does not yet exist in `pyproject.toml`, add it.
+
+9. **Run a quick validation** to make sure everything compiles:
 
 ```bash
 source venv/bin/activate && python -c "from {module_name}.commands.{command_identifier} import {function_name}"
 ```
 
-9. **Print a summary** of what was created and what the developer should do next (implement the command logic, define args, write tests).
+10. **Print a summary** of what was created and what the developer should do next (implement the command logic, define args, write tests).
