@@ -141,3 +141,80 @@ pytest --cov=src/ --cov-report=term-missing -v
 ```
 
 Every command function must have at least one test. Untested commands will be flagged during review.
+
+---
+
+## Dashboard Testing
+
+Dashboard tests use **Vitest** + **React Testing Library**.
+
+### Setup
+
+```bash
+npm test
+```
+
+### Test File Naming
+
+- Component tests: `src/components/{Name}/{Name}.test.tsx`
+- Page tests: `src/pages/{PageName}.test.tsx`
+
+### Component Test Pattern
+
+```typescript
+import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { MyComponent } from './MyComponent';
+
+describe('MyComponent', () => {
+  it('renders correctly', () => {
+    render(<MyComponent title="Test" />);
+    expect(screen.getByText('Test')).toBeInTheDocument();
+  });
+
+  it('handles user interaction', async () => {
+    const onSubmit = vi.fn();
+    render(<MyComponent onSubmit={onSubmit} />);
+    fireEvent.click(screen.getByRole('button', { name: /submit/i }));
+    expect(onSubmit).toHaveBeenCalled();
+  });
+});
+```
+
+### Mock useCommand
+
+```typescript
+vi.mock('@huitzo/dashboard-sdk-react', () => ({
+  useCommand: () => ({
+    execute: vi.fn(),
+    data: { result: 'mocked' },
+    loading: false,
+    error: null,
+  }),
+}));
+```
+
+### Mock HuitzoContext (for main.tsx tests)
+
+```typescript
+const mockContext: HuitzoContext = {
+  apiUrl: 'http://localhost:8000',
+  token: 'test-token',
+  slug: 'test-dashboard',
+  sdkVersion: '1.0.0',
+  user: { id: '1', email: 'test@test.com', roles: ['admin'], tenantId: 't1' },
+  navigate: vi.fn(),
+  navigateToHub: vi.fn(),
+  showNotification: vi.fn(),
+  on: vi.fn(() => vi.fn()),
+  emit: vi.fn(),
+};
+```
+
+### What to Test
+
+- Rendering with props
+- User interactions (click, type, keyboard)
+- Loading states (when `useCommand` returns `loading: true`)
+- Error states (when `useCommand` returns an error)
+- Accessibility (roles, labels, keyboard navigation)

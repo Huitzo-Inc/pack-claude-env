@@ -1,0 +1,9 @@
+{
+  "name": "full-stack",
+  "description": "Intelligence Pack + Dashboard development (Python backend + React frontend)",
+  "files": {
+    "include": ["*"],
+    "exclude": []
+  },
+  "note": "This is the default profile. Includes all agents, rules, and skills for combined pack and dashboard development. Path-scoped rules ensure only relevant rules load based on the files being edited."
+}

@@ -61,6 +61,22 @@ Customer data is theirs. Period.
 - Training on customer data
 - Telemetry without consent
 
+## 5. Display What Is True
+
+Dashboards must represent data faithfully and handle failure gracefully.
+
+**What it requires:**
+- Accurate visualizations — no misleading charts, truncated axes, or deceptive formatting
+- Explicit loading states — never display stale data without an indicator
+- Actionable error states — tell the user what to do, not just what went wrong
+- Accessibility — keyboard navigation, screen readers, semantic HTML
+
+**What it forbids:**
+- Silently showing stale data
+- Hiding errors behind generic "Something went wrong" messages
+- Inaccessible interfaces that exclude users with disabilities
+- Cosmetic dashboards that look good but misrepresent underlying data
+
 ---
 
 ## Quality Gates

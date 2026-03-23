@@ -1,218 +1,175 @@
-# Intelligence Pack Development
+# Intelligence Pack & Dashboard Development
 
-## Development Workflow: Documentation First
+## Project Type
 
-**Every new command or feature MUST start with documentation before implementation.**
+Detect from files present:
+- `huitzo.yaml` → Intelligence Pack (Python commands)
+- `huitzo-dashboard.yaml` → Dashboard (React micro-frontend in Huitzo Hub)
+- `packs/` + `dashboards/` → Huitzo Application (full-stack, see `docs/guides/application-structure.md`)
+- Both manifests in same dir → Full-stack project (single-project variant)
 
-1. **Draft docs** — Write the command's documentation in `docs/commands/` first
-2. **Review docs** — Use the `docs-writer` agent or `/draft-docs` skill to review
-3. **Implement** — Write the command code based on the approved documentation
-4. **Test** — Write tests that validate the documented behavior
-5. **Validate** — Run `/validate-pack` to ensure everything is consistent
+## Workflow: Documentation First
 
-This is non-negotiable. Documentation defines the contract. Code implements it.
+**Every feature starts with documentation. Code implements the documented contract.**
 
-## Documentation Server (your-docs-mcp)
+1. **Spec** (new projects) — `/draft-spec` for structured requirements gathering
+2. **Document** — `/draft-docs <name>` for commands, write `docs/components/` or `docs/pages/` for dashboards
+3. **Implement** — `/add-command <name>` for pack commands, `/scaffold-dashboard <name>` for dashboard components
+4. **Test** — `/test-pack` or `/test-dashboard`
+5. **Validate** — `/validate-pack` or `/validate-dashboard`
+6. **Lint** — `/lint-and-fix`
 
-This pack includes an MCP documentation server. It makes your `docs/` folder accessible to Claude Code for searching, navigating, and referencing.
+## Documentation Server (MCP)
 
-```bash
-# Start the docs server (if not auto-started by Claude Code)
-source venv/bin/activate
-your-docs-server
-```
-
-The server provides tools like `search_documentation`, `get_document`, `navigate_to`, and `get_table_of_contents` — Claude Code uses these automatically.
+The `pack-docs` MCP server makes `docs/` searchable within Claude Code. Tools: `search_documentation`, `get_document`, `navigate_to`, `get_table_of_contents`, `search_by_tags`, `get_all_tags`.
 
 ### Documentation Structure
 
 ```
 docs/
-├── README.md              # Pack overview, purpose, target users
-├── commands/
-│   ├── README.md          # Commands overview
-│   └── {command-name}.md  # Per-command documentation
+├── README.md                # Project overview
+├── spec/                    # Specifications (from /draft-spec)
+├── commands/                # Pack command docs (one per command)
+│   ├── README.md
+│   └── {command-name}.md
+├── components/              # Dashboard component docs
+│   └── {ComponentName}.md
+├── pages/                   # Dashboard page docs
+│   └── {PageName}.md
 └── guides/
-    ├── README.md          # Guides overview
-    └── getting-started.md # How to use this pack
+    └── getting-started.md
 ```
 
-### Documentation Format
+Every doc file uses YAML frontmatter: `title`, `tags`, `category`, `order`.
 
-Every doc file uses YAML frontmatter:
-
-```markdown
----
-title: Command Name
-tags: [command, category]
-category: commands
-order: 1
 ---
 
-# Command Name
+## Pack Development (Python)
 
-Description of what this command does and why.
-
-## Arguments
-
-| Argument | Type | Required | Description |
-|----------|------|----------|-------------|
-| `input` | string | yes | What this argument is for |
-
-## Returns
-
-Description of the return value structure.
-
-## Examples
-
-\`\`\`
-Example usage and expected output.
-\`\`\`
-```
-
-## Build / Test / Lint
-
-```bash
-# Activate virtual environment
-source venv/bin/activate
-
-# Run tests
-pytest -v
-
-# Lint and format
-ruff check .
-ruff format .
-
-# Type checking
-mypy --strict src/
-
-# Validate pack structure
-huitzo validate
-```
-
-## SDK Import Convention
+### SDK Imports
 
 ```python
 from huitzo_sdk import command, Context
 from huitzo_sdk.errors import ValidationError, CommandError, SecretsError
 ```
 
-Never import from internal SDK modules (e.g., `huitzo_sdk.command`). Always use the top-level `huitzo_sdk` namespace.
+Never import from internal SDK modules.
 
-## Command Pattern
+### Command Pattern
 
 ```python
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from huitzo_sdk import command, Context
 
 class MyArgs(BaseModel):
-    """Pydantic model for argument validation."""
-    name: str
-    count: int = 1
+    input: str = Field(..., description="Input text")
+    limit: int = Field(default=10, ge=1, le=100)
 
-@command("action-noun", namespace="my-pack", timeout=60)
-async def action_noun(args: MyArgs, ctx: Context) -> dict:
-    """Docstring becomes help text in the marketplace."""
-    return {"result": "value", "count": args.count}
+@command("verb-noun", namespace="pack-name", timeout=60)
+async def verb_noun(args: MyArgs, ctx: Context) -> dict:
+    """Docstring becomes marketplace help text."""
+    return {"result": "value"}
 ```
 
-**Key rules:**
-- Commands are always `async`
-- First param is a Pydantic `BaseModel` subclass (validated automatically)
-- Second param is `Context` (injected by runtime)
-- Return type is `dict` (serialized as JSON to the caller)
-- Name format: `"verb-noun"` (kebab-case)
-- Namespace matches your pack name
+**Rules:** Always `async`. Pydantic `BaseModel` args with `Field` descriptions. Returns `dict`. Name format: `verb-noun` kebab-case. Namespace matches `huitzo.yaml`.
 
-## Context Services
+### Context Services
 
-The `ctx` object provides platform services at runtime:
-
-| Service | Access | Description |
-|---------|--------|-------------|
-| LLM | `ctx.llm` | Call language models |
+| Service | Access | Purpose |
+|---------|--------|---------|
+| LLM | `ctx.llm` | Language model calls |
+| HTTP | `ctx.http` | External APIs (domain-restricted) |
 | Email | `ctx.email` | Send emails |
-| HTTP | `ctx.http` | Make HTTP requests (domain-restricted) |
-| Telegram | `ctx.telegram` | Send Telegram messages |
-| Files | `ctx.files` | File storage operations |
+| Storage | `ctx.storage` | Tenant-isolated key-value storage |
+| Files | `ctx.files` | File storage |
+| Secrets | `ctx.secrets` | User-provided secrets |
+| Telegram | `ctx.telegram` | Telegram messages |
 
-These are injected by the Huitzo backend. In tests, mock them.
+### Error Handling
 
-## Manifest (huitzo.yaml)
+Use `huitzo_sdk.errors`: `ValidationError`, `CommandError`, `SecretsError`, `ExternalAPIError`, `TimeoutError`, `StorageError`. Never catch `Exception` broadly.
 
-Every command in `src/*/commands/` must be listed in `huitzo.yaml`:
+### Quality Gates
 
-```yaml
-pack:
-  name: my-pack
-  namespace: my-namespace
-  version: 0.0.0
-  description: What this pack does
-  visibility: private
-  author: Your Name
-
-commands:
-  - name: action-noun
-    description: What this command does
-    enabled: true
+```bash
+pytest -v && ruff check . && ruff format --check . && mypy --strict src/ && huitzo validate
 ```
 
-## Error Handling
+---
 
-Use structured exceptions from `huitzo_sdk.errors`:
+## Dashboard Development (React)
 
-| Exception | When to use |
-|-----------|-------------|
-| `ValidationError` | User input is invalid |
-| `CommandError` | General command failure |
-| `SecretsError` | Required secret is missing |
-| `ExternalAPIError` | User-configured external API failed |
-| `TimeoutError` | Operation exceeded timeout |
-| `StorageError` | Storage operation failed |
+### Hub Contract
 
-Never catch `Exception` broadly. Let the runtime handle unexpected errors.
+Dashboards are React micro-frontends loaded by Huitzo Hub. The contract:
 
-## Traceability Headers
+```typescript
+// src/main.tsx — production entry point
+export function mount(container: HTMLElement, context: HuitzoContext): void;
+export function unmount(container: HTMLElement): void;
+```
 
-Every source file must reference the documentation it implements:
+`HuitzoContext` provides: `apiUrl`, `token`, `slug`, `sdkVersion`, `user`, `navigate()`, `navigateToHub()`, `showNotification()`, `on()`, `emit()`.
 
+### Key Rules
+
+- CSS Modules only (`.module.css`) — no global CSS that bleeds into Hub
+- All API calls through `useCommand` hook — never raw fetch
+- `ErrorBoundary` at root with `context.navigateToHub()` fallback
+- No `document.body` manipulation or `window.location` changes
+- Bundle all dependencies (no Vite externals)
+- React 19.2, functional components, TypeScript strict mode
+
+### Dashboard SDK Hooks
+
+| Hook | Purpose |
+|------|---------|
+| `useCommand` | Execute pack commands |
+| `useHuitzo` | Client, auth state, pack status |
+| `useRealtime` | WebSocket subscriptions |
+| `useHubNavigation` | Navigate between dashboards |
+| `useHubContext` | Hub URL, slug, theme |
+| `useHubActions` | Notifications, dialogs |
+
+### Manifest
+
+`huitzo-dashboard.yaml` defines name, namespace, version, visibility, `pack_dependencies`, and build config. See `dashboard-manifest` rule for full spec.
+
+### Quality Gates
+
+```bash
+npm test && npx tsc --noEmit && huitzo dashboard validate
+```
+
+---
+
+## Shared Rules
+
+### Traceability Headers (REQUIRED on all source files)
+
+**Python:**
 ```python
 """
 Module: module_name
 Description: Brief description
 
 Implements:
-    - docs/commands/action-noun.md
+    - docs/commands/verb-noun.md
 """
 ```
 
-## File Organization
-
-```
-my-pack/
-├── docs/                    # Documentation (write FIRST)
-│   ├── README.md
-│   ├── commands/
-│   │   └── hello.md
-│   └── guides/
-│       └── getting-started.md
-├── src/my_pack/
-│   ├── __init__.py
-│   └── commands/
-│       ├── __init__.py      # Export all commands
-│       └── my_command.py    # One file per command
-├── tests/
-│   ├── conftest.py
-│   └── test_my_command.py   # One test file per command
-├── huitzo.yaml              # Pack manifest
-├── pyproject.toml
-└── CONSTITUTION.md
+**TypeScript:**
+```typescript
+/**
+ * @module ComponentName
+ * @description Brief description
+ * @implements docs/components/ComponentName.md
+ */
 ```
 
-## Code Quality
+### Code Quality
 
-- All code must pass `ruff check .` and `ruff format --check .`
-- All code must pass `mypy --strict src/`
-- All commands must have corresponding tests
-- All commands must have corresponding documentation in `docs/commands/`
+- All source files must have traceability headers
+- All commands/components must have docs written FIRST
 - No backwards compatibility hacks — refactor cleanly
+- No hardcoded secrets or API keys

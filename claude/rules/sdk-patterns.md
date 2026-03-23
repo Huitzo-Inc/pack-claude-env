@@ -1,3 +1,9 @@
+---
+paths:
+  - "src/**/*.py"
+  - "tests/**/*.py"
+---
+
 # SDK Patterns
 
 ## Imports
