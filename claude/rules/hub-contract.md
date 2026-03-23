@@ -42,8 +42,8 @@ interface HuitzoContext {
   navigate: (path: string) => void;      // Navigate within Hub
   navigateToHub: () => void;             // Return to Hub home
   showNotification: (message: string, type: string) => void;
-  on: (event: string, handler: Function) => () => void;  // Subscribe
-  emit: (event: string, data: any) => void;              // Publish
+  on: (event: string, handler: (...args: unknown[]) => void) => () => void;
+  emit: (event: string, data: unknown) => void;
 }
 ```
 
