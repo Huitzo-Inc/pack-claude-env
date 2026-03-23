@@ -79,14 +79,19 @@ export function MyComponent() {
 
 ## Error Boundaries
 
+The root ErrorBoundary MUST offer a "Return to Hub" action via `context.navigateToHub()` so users aren't stuck:
+
 ```typescript
 import { ErrorBoundary } from 'react-error-boundary';
 
 function ErrorFallback({ error, resetErrorBoundary }) {
+  const { navigateToHub } = useHubNavigation();
+
   return (
     <div role="alert">
       <p>Something went wrong</p>
       <button onClick={resetErrorBoundary}>Try again</button>
+      <button onClick={navigateToHub}>Return to Hub</button>
     </div>
   );
 }

@@ -24,8 +24,12 @@ Before implementing:
 Every dashboard must export `mount` and `unmount` from `src/main.tsx`:
 
 ```typescript
+import { createRoot, Root } from 'react-dom/client';
+
+let root: Root | null = null;
+
 export function mount(container: HTMLElement, context: HuitzoContext): void {
-  const root = createRoot(container);
+  root = createRoot(container);
   root.render(
     <HuitzoProvider context={context}>
       <App />
@@ -34,8 +38,8 @@ export function mount(container: HTMLElement, context: HuitzoContext): void {
 }
 
 export function unmount(container: HTMLElement): void {
-  const root = createRoot(container);
-  root.unmount();
+  root?.unmount();
+  root = null;
 }
 ```
 
@@ -55,6 +59,12 @@ useRealtime('event:name', (event) => handleEvent(event));
 
 // Navigation
 const { navigateToHub, navigateToDashboard } = useHubNavigation();
+
+// Hub context (URL, slug, theme)
+const { isInHub, hubUrl, dashboardSlug, theme } = useHubContext();
+
+// Hub actions (notifications, dialogs)
+const { showNotification, showConfirmDialog } = useHubActions();
 ```
 
 ## Rules

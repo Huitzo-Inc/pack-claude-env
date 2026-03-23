@@ -21,7 +21,7 @@ Detect from files present:
 
 ## Documentation Server (MCP)
 
-The `pack-docs` MCP server makes `docs/` searchable within Claude Code. Tools: `search_documentation`, `get_document`, `navigate_to`, `get_table_of_contents`, `search_by_tags`.
+The `pack-docs` MCP server makes `docs/` searchable within Claude Code. Tools: `search_documentation`, `get_document`, `navigate_to`, `get_table_of_contents`, `search_by_tags`, `get_all_tags`.
 
 ### Documentation Structure
 
