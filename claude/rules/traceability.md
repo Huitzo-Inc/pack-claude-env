@@ -52,10 +52,37 @@ Implements:
 """
 ```
 
+## TypeScript / React Files
+
+Dashboard source files use JSDoc-style traceability:
+
+```typescript
+/**
+ * @module ComponentName
+ * @description Brief description of what this component does
+ *
+ * @implements docs/components/ComponentName.md
+ *
+ * @see docs/pages/PageName.md (for page context)
+ */
+```
+
+### Common Dashboard References
+
+| Your code does... | Reference |
+|-------------------|-----------|
+| Defines a component | `docs/components/{Name}.md` |
+| Defines a page | `docs/pages/{Name}.md` |
+| Implements mount/unmount | `docs/README.md` |
+| Uses SDK hooks | `docs/guides/sdk-usage.md` |
+
 ## Validation
 
 ```bash
 # Check all files have traceability headers
-# (available when huitzo CLI is installed)
+# Pack:
 huitzo validate
+
+# Dashboard:
+huitzo dashboard validate
 ```

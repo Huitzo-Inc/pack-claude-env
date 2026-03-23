@@ -1,0 +1,110 @@
+---
+title: "{PROJECT_NAME} Specification"
+tags: [spec, {PROJECT_TYPE}]
+category: spec
+---
+
+# {PROJECT_NAME} — Specification
+
+## 1. Overview
+
+**Problem:** {What problem does this solve?}
+
+**Target Users:** {Who uses this and why?}
+
+**Project Type:** {pack | dashboard | full-stack}
+
+**Success Criteria:** {How do you measure success?}
+
+## 2. User Stories
+
+- As a {role}, I want to {action}, so that {benefit}.
+- ...
+
+## 3. Command Specifications
+
+### 3.1 {command-name}
+
+**Purpose:** {Why this command exists}
+
+**Arguments:**
+
+| Argument | Type | Required | Default | Validation | Description |
+|----------|------|----------|---------|------------|-------------|
+| `arg1` | string | yes | — | max 10,000 chars | Description |
+| `arg2` | integer | no | 10 | 1-100 | Description |
+
+**Returns:**
+
+```json
+{
+  "field1": "string — description",
+  "field2": "number — description",
+  "metadata": {
+    "processing_time_ms": "integer"
+  }
+}
+```
+
+**Errors:**
+
+| Error | Condition | User Action |
+|-------|-----------|-------------|
+| `ValidationError` | Input too long | Reduce input size |
+| `SecretsError` | API key missing | Add key in Settings |
+
+**Context Services:** `ctx.llm`, `ctx.storage`
+
+**Timeout:** 60s
+
+## 4. Dashboard Specifications
+
+### 4.1 Pages
+
+#### {PageName}
+- **Purpose:** {What this page does}
+- **Commands Used:** {List of pack commands}
+- **User Interactions:** {What users can do}
+- **States:** Loading, Error, Empty, Populated
+
+### 4.2 Components
+
+#### {ComponentName}
+- **Props:** {name: type — description}
+- **Commands Used:** {If any}
+- **Behavior:** {How it works}
+
+### 4.3 State Management
+- {What state the dashboard manages and where}
+
+## 5. Non-Functional Requirements
+
+### Performance
+- {Timeout limits, SLAs, response time expectations}
+
+### Security
+- {Data classification, encryption, PII handling}
+
+### Compliance
+- {Regulatory requirements: GDPR, HIPAA, industry-specific}
+
+### Scale
+- {Concurrent users, data volume, storage expectations}
+
+## 6. External Dependencies
+
+| Service | URL | Auth | Purpose | Rate Limits |
+|---------|-----|------|---------|-------------|
+| {name} | {base_url} | API key | {purpose} | {limits} |
+
+## 7. Storage Schema
+
+| Key Pattern | Scope | TTL | Data Shape | Purpose |
+|-------------|-------|-----|------------|---------|
+| `{key}` | user | — | `{type}` | {purpose} |
+
+## 8. Glossary
+
+| Term | Definition |
+|------|-----------|
+| {term} | {definition} |

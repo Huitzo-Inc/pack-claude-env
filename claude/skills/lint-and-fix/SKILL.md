@@ -32,9 +32,25 @@ Lint and fix the pack's source code.
    ```
    Report any type errors.
 
-5. **Summarize results**:
-   - Number of issues auto-fixed by ruff
-   - Number of files reformatted
-   - Number of remaining ruff issues (if any)
-   - Number of mypy errors (if any)
+5. **Dashboard linting** (if `huitzo-dashboard.yaml` exists):
+
+   Run TypeScript type checking:
+   ```bash
+   npx tsc --noEmit 2>&1
+   ```
+   Report any type errors.
+
+   Run ESLint (if configured):
+   ```bash
+   npx eslint src/ 2>&1
+   ```
+   Report any lint issues.
+
+6. **Summarize results**:
+   - Number of issues auto-fixed by ruff (pack)
+   - Number of files reformatted (pack)
+   - Number of remaining ruff issues (pack)
+   - Number of mypy errors (pack)
+   - Number of TypeScript errors (dashboard)
+   - Number of ESLint issues (dashboard)
    - For any remaining issues, suggest fixes.

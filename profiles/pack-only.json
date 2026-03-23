@@ -1,0 +1,39 @@
+{
+  "name": "pack-only",
+  "description": "Intelligence Pack development (Python commands only)",
+  "files": {
+    "include": [
+      "CONSTITUTION.md",
+      "claude/CLAUDE.md",
+      "claude/settings.json",
+      "claude/agents/docs-writer.md",
+      "claude/agents/pack-developer.md",
+      "claude/agents/pack-reviewer.md",
+      "claude/agents/spec-architect.md",
+      "claude/rules/sdk-patterns.md",
+      "claude/rules/testing.md",
+      "claude/rules/error-handling.md",
+      "claude/rules/documentation.md",
+      "claude/rules/traceability.md",
+      "claude/skills/draft-docs/SKILL.md",
+      "claude/skills/add-command/SKILL.md",
+      "claude/skills/test-pack/SKILL.md",
+      "claude/skills/validate-pack/SKILL.md",
+      "claude/skills/lint-and-fix/SKILL.md",
+      "claude/skills/draft-spec/SKILL.md",
+      "claude/skills/draft-spec/templates/spec-template.md.tmpl",
+      "claude/skills/draft-spec/templates/questionnaire.md.tmpl"
+    ],
+    "exclude": [
+      "claude/agents/dashboard-developer.md",
+      "claude/agents/dashboard-reviewer.md",
+      "claude/rules/hub-contract.md",
+      "claude/rules/react-patterns.md",
+      "claude/rules/dashboard-manifest.md",
+      "claude/skills/scaffold-dashboard/",
+      "claude/skills/validate-dashboard/",
+      "claude/skills/test-dashboard/",
+      "claude/skills/dashboard-dev/"
+    ]
+  }
+}

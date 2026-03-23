@@ -1,0 +1,105 @@
+# Spec Questionnaire — Phase Question Bank
+
+## Phase 1: Ideation
+
+### Required
+- What is this project? Describe it in your own words.
+- Who is the target user? What problem does it solve for them?
+- What does success look like? How would you measure it?
+
+### Follow-up Triggers
+- If description is < 50 words → "Can you elaborate? What specific tasks will this handle?"
+- If no user mentioned → "Who specifically will use this? What is their role?"
+- If no success metric → "How will you know this is working well? What would you measure?"
+
+## Phase 2: Discovery
+
+### Required
+- What domain does this operate in? (e.g., insurance, finance, healthcare, logistics, general)
+- What is the user's workflow today without this tool?
+- What data does the user currently have access to?
+- What are the key entities (nouns) in this domain and their relationships?
+
+### Conditional
+- If regulated domain → "What regulations or compliance requirements apply?"
+- If domain-specific terms → "Let's define a glossary. What terms should we clarify?"
+- If multiple user types → "Describe each user type and their specific needs."
+
+### Follow-up Triggers
+- For each entity → "What attributes does {entity} have? How does it relate to other entities?"
+- For each workflow step → "What can go wrong at this step? How is it handled today?"
+
+## Phase 3: Integration Mapping
+
+### Required
+- Which Huitzo context services does this need?
+  - [ ] `ctx.llm` — Language model calls
+  - [ ] `ctx.http` — External HTTP APIs
+  - [ ] `ctx.email` — Send emails
+  - [ ] `ctx.storage` — Persistent key-value storage
+  - [ ] `ctx.files` — File upload/download
+  - [ ] `ctx.secrets` — User-provided credentials
+  - [ ] `ctx.telegram` — Telegram messages
+  - [ ] `ctx.ssh` — Remote command execution
+  - [ ] `ctx.mcp` — MCP servers
+- Does this need any external APIs or services?
+- Does this need real-time updates (WebSocket events)?
+
+### For each external API
+- What is the base URL?
+- What authentication method? (API key, OAuth, basic auth)
+- What are the rate limits?
+- What data format? (JSON, XML, CSV)
+- Is there a sandbox/test environment?
+
+### For ctx.llm usage
+- What model capabilities needed? (text gen, structured output, analysis, vision)
+- What is the expected prompt complexity?
+- Can results be cached?
+
+## Phase 4: Data Contracts
+
+### For each command
+- What is the command name? (verb-noun kebab-case)
+- What are the input arguments? (for each: name, type, required, validation, description)
+- What does the return value look like? (JSON structure with types)
+- What errors can occur? (SDK exception type, condition, user action)
+- What is a reasonable timeout?
+
+### Storage
+- What data needs to persist between command calls?
+- For each storage key:
+  - Key pattern (e.g., `session:{id}`, `cache:{hash}`)
+  - Scope: user (per-user), tenant (shared in org), pack (shared globally)
+  - TTL: permanent or expiry time?
+  - Data shape (JSON structure)
+
+### Dashboard State (if applicable)
+- What state does each page manage?
+- What data flows from pack commands to the UI?
+- What client-side state is needed vs. server-fetched state?
+
+## Phase 5: Constraints
+
+### Performance
+- What timeout limits apply per command?
+- Are there response time SLAs?
+- Expected data volume per request?
+- Expected concurrent users?
+
+### Security
+- What data classification applies? (public, internal, confidential, restricted)
+- Is PII involved? What kind?
+- Is encryption at rest needed beyond platform defaults?
+- Are there IP/domain restrictions?
+
+### Compliance
+- Regulatory frameworks? (GDPR, HIPAA, SOC 2, PCI DSS, industry-specific)
+- Data residency requirements?
+- Audit logging needs?
+- Data retention policies?
+
+### Availability
+- What happens when external APIs are down? (graceful degradation, cached fallback, error)
+- What happens when the LLM is slow or unavailable?
+- Are there retry strategies needed?
