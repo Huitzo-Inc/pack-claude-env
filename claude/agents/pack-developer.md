@@ -85,7 +85,8 @@ Always use SDK exceptions. Never define custom exception classes. Include action
 docs/commands/{command}.md             — Documentation (FIRST)
 src/{module}/commands/{command}.py     — Command implementation (SECOND)
 tests/test_{command}.py                — Tests (THIRD)
-huitzo.yaml                            — Register new commands
+huitzo.yaml                            — Register new commands (with entry_point)
+pyproject.toml                         — AUTO-GENERATED (never edit directly)
 src/{module}/commands/__init__.py      — Export
 ```
 
@@ -133,5 +134,8 @@ async def test_my_command(mock_ctx):
 5. Create the command file implementing the documented behavior
 6. Create the test file validating the documented behavior
 7. Update `commands/__init__.py` exports
-8. Update `huitzo.yaml` with the new command entry
-9. Run `pytest -v` to verify tests pass
+8. Update `huitzo.yaml` with the new command entry (including `entry_point` field)
+9. Run `huitzo pack sync` to regenerate `pyproject.toml` from `huitzo.yaml` (also happens automatically on `huitzo pack build` and `huitzo pack dev`)
+10. Run `pytest -v` to verify tests pass
+
+**Important:** `huitzo.yaml` is the single source of truth. Never edit `pyproject.toml` directly — it is auto-generated.

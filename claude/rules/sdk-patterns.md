@@ -135,3 +135,21 @@ class MyCommand(HuitzoCommand):
 ```
 
 Use class-based commands only when you need lifecycle hooks. For most cases, the `@command` decorator is simpler and preferred.
+
+## Command Registration
+
+`huitzo.yaml` is the **single source of truth** for command registration. Every command must include an `entry_point` field:
+
+```yaml
+commands:
+  - name: analyze-text
+    description: Analyze text content
+    entry_point: "my_pack.commands.analyze_text:analyze_text"
+    enabled: true
+```
+
+The `entry_point` format is `module.path:function_name` using Python identifiers (underscores, not hyphens).
+
+**Do NOT edit `pyproject.toml` directly.** It is auto-generated from `huitzo.yaml`:
+- `huitzo pack build` and `huitzo pack dev` regenerate it automatically
+- `huitzo pack sync` regenerates it on demand

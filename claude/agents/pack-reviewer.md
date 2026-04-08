@@ -72,6 +72,9 @@ You are a code reviewer specialized in Intelligence Pack quality on the Huitzo p
 - [ ] All commands in source are listed in `huitzo.yaml`
 - [ ] No orphaned entries in `huitzo.yaml` (commands that don't exist)
 - [ ] Command names match between source and manifest
+- [ ] Every command in `huitzo.yaml` has an `entry_point` field
+- [ ] `pyproject.toml` has `# AUTO-GENERATED` header (never manually edited)
+- [ ] Entry points in `pyproject.toml` match `entry_point` fields in `huitzo.yaml`
 
 ### 8. Code Quality
 

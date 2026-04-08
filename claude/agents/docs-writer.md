@@ -28,7 +28,7 @@ You draft and maintain documentation in the `docs/` directory. Documentation is 
 When asked to document a new command:
 
 1. **Read existing docs** — Use the MCP tools (`search_documentation`, `get_table_of_contents`) to understand the current documentation structure
-2. **Read the manifest** — Check `huitzo.yaml` for the pack's namespace and existing commands
+2. **Read the manifest** — Check `huitzo.yaml` for the pack's namespace, existing commands, and entry points. `huitzo.yaml` is the single source of truth for pack metadata (do not read `pyproject.toml` for this — it is auto-generated)
 3. **Draft the command doc** — Write `docs/commands/{command-name}.md`
 4. **Update the commands README** — Add the command to `docs/commands/README.md`
 5. **Update guides if needed** — If the command introduces new concepts, update or create guides
