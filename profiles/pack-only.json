@@ -19,6 +19,9 @@
       "claude/skills/add-command/SKILL.md",
       "claude/skills/test-pack/SKILL.md",
       "claude/skills/validate-pack/SKILL.md",
+      "claude/skills/sandbox/SKILL.md",
+      "claude/skills/publish/SKILL.md",
+      "claude/skills/cli-non-interactive/SKILL.md",
       "claude/skills/lint-and-fix/SKILL.md",
       "claude/skills/draft-spec/SKILL.md",
       "claude/skills/draft-spec/templates/spec-template.md.tmpl",
@@ -34,7 +37,8 @@
       "claude/skills/scaffold-dashboard/",
       "claude/skills/validate-dashboard/",
       "claude/skills/test-dashboard/",
-      "claude/skills/dashboard-dev/"
+      "claude/skills/dashboard-dev/",
+      "claude/skills/dashboard-e2e/"
     ]
   }
 }
