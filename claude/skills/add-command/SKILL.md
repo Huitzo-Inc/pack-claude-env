@@ -1,5 +1,7 @@
 ---
+name: add-command
 description: Scaffold a new command with args model, function, test, and manifest entry
+argument-hint: "<command-name>"
 disable-model-invocation: true
 ---
 
@@ -23,7 +25,7 @@ Module: {command_identifier}
 Description: {command_name} command
 
 Implements:
-    - docs/sdk/commands.md
+    - docs/commands/{command-name}.md
 """
 
 from pydantic import BaseModel, Field
@@ -46,7 +48,41 @@ async def {function_name}(args: {ArgsClassName}, ctx: Context) -> dict:
 
 5. **Update the commands `__init__.py`** to export the new command function.
 
-6. **Create a test file** at `tests/test_{command_identifier}.py`:
+6. **Ensure a `mock_ctx` fixture exists.** Commands take two arguments — `async def fn(args, ctx)` — so every test must pass a mocked `Context`. If `tests/conftest.py` does not already define a `mock_ctx` fixture, create it:
+
+```python
+"""
+Module: conftest
+Description: Shared pytest fixtures for the pack's command tests
+
+Implements:
+    - docs/commands/README.md
+"""
+
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+
+from huitzo_sdk import Context
+
+
+@pytest.fixture
+def mock_ctx() -> Context:
+    """A mock Context with stubbed platform services (LLM, HTTP, storage, ...)."""
+    ctx = MagicMock(spec=Context)
+    ctx.llm = AsyncMock()
+    ctx.http = AsyncMock()
+    ctx.email = AsyncMock()
+    ctx.telegram = AsyncMock()
+    ctx.files = AsyncMock()
+    ctx.storage = AsyncMock()
+    ctx.secrets = MagicMock()
+    ctx.command_name = "test-command"
+    ctx.namespace = "test-pack"
+    return ctx
+```
+
+7. **Create a test file** at `tests/test_{command_identifier}.py`. The command is called with both `args` AND the `mock_ctx` fixture:
 
 ```python
 """
@@ -54,7 +90,7 @@ Module: test_{command_identifier}
 Description: Tests for {command_name}
 
 Implements:
-    - docs/sdk/commands.md
+    - docs/commands/{command-name}.md
 """
 
 import pytest
@@ -66,10 +102,10 @@ class Test{CommandClassName}:
     """Tests for {function_name}."""
 
     @pytest.mark.asyncio
-    async def test_basic(self):
+    async def test_basic(self, mock_ctx):
         """Test basic execution."""
         args = {ArgsClassName}(input="test")
-        result = await {function_name}(args)
+        result = await {function_name}(args, mock_ctx)
         assert "result" in result
 
     def test_args_validation(self):
@@ -80,7 +116,7 @@ class Test{CommandClassName}:
         assert args.input == "valid"
 ```
 
-7. **Update `huitzo.yaml`** to add the new command entry under `commands:`. The `entry_point` field is REQUIRED and tells the runtime where to find the command function:
+8. **Update `huitzo.yaml`** to add the new command entry under `commands:`. The `entry_point` field is REQUIRED and tells the runtime where to find the command function:
 
 ```yaml
   - name: {command-name}

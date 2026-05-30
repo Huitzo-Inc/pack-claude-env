@@ -1,5 +1,7 @@
 ---
+name: scaffold-dashboard
 description: Scaffold a new dashboard component or page with docs, CSS Module, and test file
+argument-hint: "[page] <Name>"
 ---
 
 # /scaffold-dashboard

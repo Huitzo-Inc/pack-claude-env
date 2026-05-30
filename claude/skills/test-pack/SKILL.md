@@ -1,4 +1,5 @@
 ---
+name: test-pack
 description: Run pack tests with virtual environment activation
 disable-model-invocation: true
 ---

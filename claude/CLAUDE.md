@@ -80,10 +80,14 @@ async def verb_noun(args: MyArgs, ctx: Context) -> dict:
 | LLM | `ctx.llm` | Language model calls |
 | HTTP | `ctx.http` | External APIs (domain-restricted) |
 | Email | `ctx.email` | Send emails |
-| Storage | `ctx.storage` | Tenant-isolated key-value storage |
+| Storage | `ctx.storage` | Key-value state (`scope="user"` or `"tenant"`) |
 | Files | `ctx.files` | File storage |
-| Secrets | `ctx.secrets` | User-provided secrets |
+| Secrets | `ctx.secrets` | User-provided secrets (`require()` / `get()`) |
 | Telegram | `ctx.telegram` | Telegram messages |
+| SSH | `ctx.ssh` | Run commands on a user-configured remote host |
+| MCP | `ctx.mcp` | Call tools on a connected MCP server |
+
+See `sdk-patterns` rule for the full Context reference.
 
 ### Error Handling
 
@@ -109,12 +113,13 @@ export function mount(container: HTMLElement, context: HuitzoContext): void;
 export function unmount(container: HTMLElement): void;
 ```
 
-`HuitzoContext` provides: `apiUrl`, `token`, `slug`, `sdkVersion`, `user`, `navigate()`, `navigateToHub()`, `showNotification()`, `on()`, `emit()`.
+`mount` MUST wrap the app in **`HuitzoProvider`** (so SDK hooks work) and in a **`<div className="huitzo-dashboard">`** (so brand tokens resolve). `HuitzoContext` provides: `apiUrl`, `getToken()`, `slug`, `sdkVersion`, `user`, `navigate()`, `navigateToHub()`, `navigateToDashboard()`, `showNotification()`, `on()`, `emit()`. See `hub-contract` rule.
 
 ### Key Rules
 
 - CSS Modules only (`.module.css`) — no global CSS that bleeds into Hub
-- All API calls through `useCommand` hook — never raw fetch
+- Brand tokens + `hz-*` primitives only — no hex/RGB/HSL colors, no UI kits (see `dashboard-design` rule)
+- All API calls through the execute-based `useCommand` hook — never raw fetch
 - `ErrorBoundary` at root with `context.navigateToHub()` fallback
 - No `document.body` manipulation or `window.location` changes
 - Bundle all dependencies (no Vite externals)
@@ -122,14 +127,11 @@ export function unmount(container: HTMLElement): void;
 
 ### Dashboard SDK Hooks
 
-| Hook | Purpose |
-|------|---------|
-| `useCommand` | Execute pack commands |
-| `useHuitzo` | Client, auth state, pack status |
-| `useRealtime` | WebSocket subscriptions |
-| `useHubNavigation` | Navigate between dashboards |
-| `useHubContext` | Hub URL, slug, theme |
-| `useHubActions` | Notifications, dialogs |
+`@huitzo/dashboard-sdk-react` 4.1.x provides: `useCommand`, `useHuitzo`,
+`useHubContext`, `useRealtime`, `useHubNavigation`, `useHubActions`,
+`useHubBreadcrumbs`, `useStreamingCommand`, `useConnectionStatus`, `usePacks`,
+`useLocale`. See the `dashboard-developer` agent and `react-patterns` rule for
+signatures and the execute-based `useCommand` shape.
 
 ### Manifest
 

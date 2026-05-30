@@ -1,5 +1,7 @@
 ---
+name: draft-spec
 description: Guided requirements gathering and specification for new Intelligence Packs and Dashboards
+argument-hint: "[project-name]"
 ---
 
 # /draft-spec

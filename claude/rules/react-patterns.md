@@ -16,16 +16,29 @@ Rules for React dashboard development on the Huitzo platform.
 
 ## API Calls
 
-**All pack command calls MUST go through `useCommand`:**
+**All pack command calls MUST go through `useCommand`.** It is **execute-based** —
+it does not auto-run. You trigger the command with `execute(args)` (e.g. from an
+effect or an event handler) and read the lifecycle state:
 
 ```typescript
-const { execute, data, loading, error } = useCommand<ResultType>('@scope/pack/command');
+const { execute, data, loading, error, status, reset } =
+  useCommand<ResultType>('@scope/pack/command');
 
-// Every useCommand must handle all three states:
+// Run it — typically on mount or in response to user action:
+useEffect(() => { execute({ id }); }, [execute, id]);
+
+// Handle every state:
 if (loading) return <LoadingSpinner />;
-if (error) return <ErrorMessage error={error} />;
+if (error) return <ErrorMessage error={error} onRetry={() => execute({ id })} />;
+if (!data) return <Empty />;        // idle, before the first execute resolves
 return <ResultView data={data} />;
 ```
+
+The full return shape is
+`{ execute, data, loading, error, reset, status, isIdle, isSuccess, isError }`
+where `status` is `'idle' | 'loading' | 'success' | 'error'`. For auto-running
+data fetches, pass `initialArgs`; for live data, pass `refetchInterval` (ms or
+`(data) => ms`).
 
 Never use raw `fetch`, `axios`, or direct API calls. The SDK handles auth, base URL, and error formatting.
 
@@ -42,9 +55,16 @@ Pages live at `src/pages/{PageName}.tsx`.
 
 ## Styles
 
-- **CSS Modules** (`.module.css`) for component-specific styles
-- **Tailwind utilities** for layout and common patterns
-- **Never global CSS** — no `import './styles.css'` without `.module.css`
+Visual design is governed by **`dashboard-design.md`** (hard requirement). The
+engineering rules here:
+
+- **CSS Modules** (`.module.css`) for component-specific layout.
+- **Tailwind utilities** are allowed for layout only (`flex`, `grid`, `gap-*`).
+- **Never global CSS** — no `import './styles.css'` without `.module.css`.
+- **Never a hex color, RGB, HSL, or a hex literal in a Tailwind class**
+  (`bg-[#155dfc]`). Color, shadow, and radius come from the brand tokens
+  (`var(--color-*)`, `--shadow-*`, `--radius-*`) and the `hz-*` primitives. See
+  `dashboard-design.md`.
 
 ```typescript
 import styles from './MyComponent.module.css';
@@ -104,37 +124,58 @@ function ErrorFallback({ error, resetErrorBoundary }) {
 
 ## Testing
 
-Use **Vitest** + **React Testing Library**:
+Use **Vitest** + **React Testing Library**. Components that use SDK hooks MUST be
+rendered inside a **`HuitzoProvider`** — the hooks throw outside a provider:
 
 ```typescript
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
+import { HuitzoProvider } from '@huitzo/dashboard-sdk-react';
 import { MyComponent } from './MyComponent';
+
+const mockContext = {
+  apiUrl: 'http://localhost:8000', getToken: () => 'test-token', slug: 'test',
+  sdkVersion: '4.1.0',
+  user: { id: '1', email: 'a@b.com', roles: ['admin'], tenantId: 't1' },
+  navigate: vi.fn(), navigateToHub: vi.fn(), navigateToDashboard: vi.fn(),
+  showNotification: vi.fn(), on: vi.fn(() => vi.fn()), emit: vi.fn(),
+};
+
+function renderWithHuitzo(ui: React.ReactElement) {
+  return render(<HuitzoProvider context={mockContext}>{ui}</HuitzoProvider>);
+}
 
 describe('MyComponent', () => {
   it('renders correctly', () => {
-    render(<MyComponent title="Test" />);
+    renderWithHuitzo(<MyComponent title="Test" />);
     expect(screen.getByText('Test')).toBeInTheDocument();
   });
 
   it('handles click', async () => {
     const onClick = vi.fn();
-    render(<MyComponent onClick={onClick} />);
+    renderWithHuitzo(<MyComponent onClick={onClick} />);
     fireEvent.click(screen.getByRole('button'));
     expect(onClick).toHaveBeenCalled();
   });
 });
 ```
 
-Mock `useCommand` in tests:
+Mock `useCommand` with its **full execute-based return shape** (spread the real
+module so `HuitzoProvider` and other hooks survive):
 
 ```typescript
-vi.mock('@huitzo/dashboard-sdk-react', () => ({
+vi.mock('@huitzo/dashboard-sdk-react', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@huitzo/dashboard-sdk-react')>()),
   useCommand: () => ({
     execute: vi.fn(),
+    reset: vi.fn(),
     data: { result: 'mocked' },
     loading: false,
     error: null,
+    status: 'success',
+    isIdle: false,
+    isSuccess: true,
+    isError: false,
   }),
 }));
 ```

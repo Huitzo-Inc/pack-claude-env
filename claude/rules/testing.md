@@ -16,17 +16,17 @@ pytest -v
 
 ## Async Test Pattern
 
-All command tests must be async:
+All command tests must be async. Commands take **two** arguments — `async def fn(args, ctx)` — so every call passes the `mock_ctx` fixture (defined below) alongside the args model:
 
 ```python
 import pytest
 from my_pack.commands.analyze import analyze_text, AnalyzeArgs
 
 @pytest.mark.asyncio
-async def test_analyze_text_basic():
+async def test_analyze_text_basic(mock_ctx):
     """Test basic analysis."""
     args = AnalyzeArgs(text="Hello world", language="en")
-    result = await analyze_text(args)
+    result = await analyze_text(args, mock_ctx)
 
     assert "analysis" in result
     assert result["language"] == "en"
@@ -34,7 +34,7 @@ async def test_analyze_text_basic():
 
 ## Mock Context
 
-Context services are not available in tests. Create a mock:
+Context services are not available in tests. Create a mock — put this fixture in `tests/conftest.py` so every test file can use it:
 
 ```python
 from unittest.mock import AsyncMock, MagicMock
@@ -49,6 +49,8 @@ def mock_ctx():
     ctx.email = AsyncMock()
     ctx.telegram = AsyncMock()
     ctx.files = AsyncMock()
+    ctx.storage = AsyncMock()      # async key/value storage (get/save)
+    ctx.secrets = MagicMock()      # secrets.require()/get() are sync
     ctx.command_name = "test-command"
     ctx.namespace = "test-pack"
     return ctx
@@ -102,7 +104,7 @@ Module: test_analyze
 Description: Tests for the analyze command
 
 Implements:
-    - docs/sdk/commands.md
+    - docs/commands/analyze-text.md
 """
 
 import pytest
@@ -112,17 +114,17 @@ class TestAnalyzeText:
     """Tests for analyze_text command."""
 
     @pytest.mark.asyncio
-    async def test_basic_analysis(self):
+    async def test_basic_analysis(self, mock_ctx):
         """Test basic text analysis."""
         args = AnalyzeArgs(text="Hello world")
-        result = await analyze_text(args)
+        result = await analyze_text(args, mock_ctx)
         assert "analysis" in result
 
     @pytest.mark.asyncio
-    async def test_with_language(self):
+    async def test_with_language(self, mock_ctx):
         """Test with explicit language."""
         args = AnalyzeArgs(text="Hola mundo", language="es")
-        result = await analyze_text(args)
+        result = await analyze_text(args, mock_ctx)
         assert result["language"] == "es"
 
     def test_invalid_args(self):
@@ -181,40 +183,63 @@ describe('MyComponent', () => {
 });
 ```
 
-### Mock useCommand
+### Wrap components in `HuitzoProvider`
+
+SDK hooks (`useCommand`, `useHubContext`, ...) only work inside a `HuitzoProvider`. Render components under a provider with a mock mount context — define a small `renderWithHuitzo` helper and reuse it:
 
 ```typescript
-vi.mock('@huitzo/dashboard-sdk-react', () => ({
-  useCommand: () => ({
-    execute: vi.fn(),
-    data: { result: 'mocked' },
-    loading: false,
-    error: null,
-  }),
-}));
-```
+import { render } from '@testing-library/react';
+import { HuitzoProvider } from '@huitzo/dashboard-sdk-react';
+import type { ReactElement } from 'react';
 
-### Mock HuitzoContext (for main.tsx tests)
-
-```typescript
-const mockContext: HuitzoContext = {
+const mockContext = {
   apiUrl: 'http://localhost:8000',
-  token: 'test-token',
+  getToken: () => 'test-token',
   slug: 'test-dashboard',
-  sdkVersion: '1.0.0',
+  sdkVersion: '4.1.0',
   user: { id: '1', email: 'test@test.com', roles: ['admin'], tenantId: 't1' },
   navigate: vi.fn(),
   navigateToHub: vi.fn(),
+  navigateToDashboard: vi.fn(),
   showNotification: vi.fn(),
   on: vi.fn(() => vi.fn()),
   emit: vi.fn(),
 };
+
+function renderWithHuitzo(ui: ReactElement) {
+  return render(<HuitzoProvider context={mockContext}>{ui}</HuitzoProvider>);
+}
 ```
+
+### Mock useCommand
+
+`useCommand` is **execute-based**: it returns `{ execute, data, loading, error, reset, status, isIdle, isSuccess, isError }`. Calling code triggers a command with `execute(args)` — it does NOT auto-run. Mock the full shape so components don't crash reading `status`/`reset`:
+
+```typescript
+import { vi } from 'vitest';
+
+vi.mock('@huitzo/dashboard-sdk-react', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@huitzo/dashboard-sdk-react')>()),
+  useCommand: () => ({
+    execute: vi.fn(),
+    reset: vi.fn(),
+    data: { result: 'mocked' },
+    loading: false,
+    error: null,
+    status: 'success',
+    isIdle: false,
+    isSuccess: true,
+    isError: false,
+  }),
+}));
+```
+
+Spreading `importOriginal()` keeps `HuitzoProvider` and the other hooks intact while overriding only `useCommand`.
 
 ### What to Test
 
-- Rendering with props
-- User interactions (click, type, keyboard)
-- Loading states (when `useCommand` returns `loading: true`)
-- Error states (when `useCommand` returns an error)
+- Rendering with props (under `renderWithHuitzo`)
+- User interactions (click, type, keyboard) and that they call `execute`
+- Loading states (when `useCommand` returns `loading: true` / `status: 'loading'`)
+- Error states (when `useCommand` returns an error / `status: 'error'`)
 - Accessibility (roles, labels, keyboard navigation)

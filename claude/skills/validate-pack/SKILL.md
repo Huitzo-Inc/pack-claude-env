@@ -1,4 +1,5 @@
 ---
+name: validate-pack
 description: Validate pack structure, manifest, entry points, traceability, and linting
 disable-model-invocation: true
 ---

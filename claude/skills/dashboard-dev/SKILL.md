@@ -1,4 +1,5 @@
 ---
+name: dashboard-dev
 description: Start the Vite development server for dashboard development
 disable-model-invocation: true
 ---

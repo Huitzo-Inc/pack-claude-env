@@ -74,7 +74,7 @@ The `ctx` object provides platform services injected at runtime:
 ```python
 # LLM — call language models
 response = await ctx.llm.chat(
-    model="claude-sonnet-4-20250514",
+    model="claude-sonnet-4-6",
     messages=[{"role": "user", "content": "Hello"}],
 )
 
@@ -89,9 +89,59 @@ await ctx.telegram.send_message(chat_id=123, text="Alert!")
 
 # Files — file storage
 await ctx.files.upload(path="reports/output.pdf", content=pdf_bytes)
+
+# Storage — durable key/value state (scoped per user or per tenant)
+data = await ctx.storage.get("key", default={})
+
+# Secrets — user-configured secrets (API keys, etc.)
+api_key = ctx.secrets.require("USER_API_KEY")
+
+# SSH — run commands on a user-configured remote host
+result = await ctx.ssh.run("uptime")
+
+# MCP — call tools on a connected Model Context Protocol server
+tool_result = await ctx.mcp.call_tool("server-name", "tool-name", {"arg": "value"})
 ```
 
 **In tests, these are not available.** Mock them (see testing rules).
+
+## Storage Access
+
+`ctx.storage` is durable key/value storage. Always provide a default and choose
+the right scope:
+
+```python
+# Always use defaults
+data = await ctx.storage.get("key", default={})
+
+# Use the appropriate scope: "user" (default) is per-user; "tenant" is shared
+await ctx.storage.save("shared", data, scope="tenant")
+```
+
+## User Secrets
+
+`ctx.secrets` reads secrets the user configured for your pack. Use `require()`
+when the secret is mandatory and `get()` when it is optional. Never log secret
+values.
+
+```python
+from huitzo_sdk.errors import SecretsError, ExternalAPIError
+
+# Required — raises SecretsError if missing
+api_key = ctx.secrets.require("USER_API_KEY")
+
+# Optional — returns None if missing
+premium_key = ctx.secrets.get("PREMIUM_KEY")
+
+# Surface external-API failures with an actionable, user-facing message
+try:
+    result = await external_api.call(api_key)
+except AuthError:
+    raise ExternalAPIError(
+        service="external-service",
+        message="Invalid API key. Update it in Settings → Pack Secrets.",
+    )
+```
 
 ## Return Values
 

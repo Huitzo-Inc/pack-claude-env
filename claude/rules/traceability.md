@@ -2,22 +2,24 @@
 
 ## Requirement
 
-Every source file must include a traceability header referencing the documentation it implements.
+Every source file must include a traceability header referencing the documentation it implements. The referenced docs live **inside your project** (`docs/commands/`, `docs/components/`, `docs/pages/`) — not in the Huitzo monorepo. Each command/component you write has a matching doc that defines its contract (the docs-first workflow), and the source file points back at it.
 
 ## Format
 
 ```python
 """
-Module: module_name
+Module: analyze_text
 Description: Brief description of what this module does
 
 Implements:
-    - docs/sdk/commands.md
+    - docs/commands/analyze-text.md
 
 See Also:
-    - docs/sdk/context.md (for Context API usage)
+    - docs/commands/README.md (for shared conventions)
 """
 ```
+
+Match the doc path to the command name: `commands/analyze_text.py` implements `docs/commands/analyze-text.md`.
 
 ## Fields
 
@@ -25,22 +27,23 @@ See Also:
 |-------|----------|-------------|
 | `Module` | Yes | Module name (matches filename without extension) |
 | `Description` | Yes | One-line description |
-| `Implements` | Yes | List of doc paths this file implements |
+| `Implements` | Yes | List of project-local doc paths this file implements |
 | `See Also` | No | Related documentation for context |
 
 ## Common References
 
+All references point at docs **in your project**, mirroring your command/component layout:
+
 | Your code does... | Reference |
 |-------------------|-----------|
-| Defines a command | `docs/sdk/commands.md` |
-| Uses Context | `docs/sdk/context.md` |
-| Handles errors | `docs/sdk/error-handling.md` |
-| Uses storage | `docs/sdk/storage.md` |
-| Uses integrations | `docs/sdk/integrations.md` |
+| Defines a command | `docs/commands/{command-name}.md` |
+| Shared command conventions | `docs/commands/README.md` |
+| Defines a dashboard component | `docs/components/{Name}.md` |
+| Defines a dashboard page | `docs/pages/{Name}.md` |
 
 ## Test Files
 
-Test files also need headers:
+Test files also need headers, pointing at the same doc the command they test implements:
 
 ```python
 """
@@ -48,7 +51,7 @@ Module: test_analyze
 Description: Tests for the analyze command
 
 Implements:
-    - docs/sdk/commands.md
+    - docs/commands/analyze-text.md
 """
 ```
 

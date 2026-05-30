@@ -51,6 +51,12 @@ async def verb_noun(args: MyArgs, ctx: Context) -> dict:
 - `ctx.email` — Send emails
 - `ctx.telegram` — Telegram messages
 - `ctx.files` — File storage
+- `ctx.storage` — Durable key/value state; `await ctx.storage.get(k, default=...)` / `save(k, v, scope="user"|"tenant")`
+- `ctx.secrets` — User-configured secrets; `ctx.secrets.require("KEY")` (mandatory) / `get("KEY")` (optional)
+- `ctx.ssh` — Run commands on a user-configured remote host
+- `ctx.mcp` — Call tools on a connected MCP server
+
+See `sdk-patterns.md` for the full Context reference, storage scopes, and secrets handling.
 
 ### Error Handling
 
@@ -116,6 +122,8 @@ def mock_ctx():
     ctx = MagicMock(spec=Context)
     ctx.llm = AsyncMock()
     ctx.http = AsyncMock()
+    ctx.storage = AsyncMock()      # get/save are async
+    ctx.secrets = MagicMock()      # require/get are sync
     return ctx
 
 @pytest.mark.asyncio
