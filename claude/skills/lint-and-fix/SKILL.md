@@ -1,4 +1,5 @@
 ---
+name: lint-and-fix
 description: Run ruff check, ruff format, and mypy to lint and fix code
 disable-model-invocation: true
 ---

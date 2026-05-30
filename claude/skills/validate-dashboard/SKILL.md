@@ -1,4 +1,5 @@
 ---
+name: validate-dashboard
 description: Validate dashboard manifest, bundle, Hub contract, and traceability
 disable-model-invocation: true
 ---

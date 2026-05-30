@@ -24,7 +24,10 @@ Before implementing:
 Every dashboard must export `mount` and `unmount` from `src/main.tsx`:
 
 ```typescript
-import { createRoot, Root } from 'react-dom/client';
+import { createRoot, type Root } from 'react-dom/client';
+import { HuitzoProvider } from '@huitzo/dashboard-sdk-react';
+import '@huitzo/dashboard-sdk-react/styles';   // brand tokens + hz-* primitives
+import App from './App';
 
 let root: Root | null = null;
 
@@ -32,54 +35,105 @@ export function mount(container: HTMLElement, context: HuitzoContext): void {
   root = createRoot(container);
   root.render(
     <HuitzoProvider context={context}>
-      <App />
+      <div className="huitzo-dashboard">
+        <App />
+      </div>
     </HuitzoProvider>
   );
 }
 
-export function unmount(container: HTMLElement): void {
+export function unmount(_container: HTMLElement): void {
   root?.unmount();
   root = null;
 }
 ```
 
-`HuitzoContext` is a plain JS object injected by Hub — it provides `apiUrl`, `token`, `slug`, `user`, `navigate()`, `navigateToHub()`, `showNotification()`, `on()`, `emit()`.
+`HuitzoContext` is a plain JS object injected by Hub — it provides `apiUrl`, `getToken()`, `slug`, `user`, `navigate()`, `navigateToHub()`, `navigateToDashboard()`, `showNotification()`, `on()`, `emit()`. **`HuitzoProvider` is mandatory** (hooks throw outside it), and the **`huitzo-dashboard` wrapper class** is mandatory so brand tokens resolve. See `hub-contract.md`.
 
-## SDK Hooks
+## SDK Hooks (`@huitzo/dashboard-sdk-react` 4.1.x)
 
 ```typescript
-// Execute pack commands
-const { execute, data, loading, error } = useCommand('@scope/pack/command');
+// Execute pack commands (execute-based — does NOT auto-run).
+// Returns { execute, data, loading, error, reset, status, isIdle, isSuccess, isError }.
+// Options include initialArgs (auto-run on mount) and refetchInterval (live data).
+const { execute, data, loading, error, status, reset } =
+  useCommand<ResultType>('@scope/pack/command', { refetchInterval: 5000 });
 
 // Auth and client
 const { client, user, isAuthenticated } = useHuitzo();
 
-// Real-time updates
+// Mount context — returns { apiUrl, dashboardSlug, user, theme, locale, currency }
+const { dashboardSlug, theme, user } = useHubContext();
+
+// Real-time updates (WebSocket event bus)
 useRealtime('event:name', (event) => handleEvent(event));
 
 // Navigation
 const { navigateToHub, navigateToDashboard } = useHubNavigation();
 
-// Hub context (URL, slug, theme)
-const { isInHub, hubUrl, dashboardSlug, theme } = useHubContext();
+// Hub actions — showNotification({ message, variant }); showConfirmDialog({...}) => Promise<boolean>; openSettings()
+const { showNotification, showConfirmDialog, openSettings } = useHubActions();
 
-// Hub actions (notifications, dialogs)
-const { showNotification, showConfirmDialog } = useHubActions();
+// Hub breadcrumbs — imperative; pass the trail array, returns void
+useHubBreadcrumbs([{ label: 'Section' }, { label: 'Detail' }]);
+
+// Streaming command output (token-by-token / chunked).
+// Returns { start, abort, reset, chunks, text, result, status, error, isStreaming, ... }.
+// status is 'idle' | 'streaming' | 'success' | 'error' (NOT 'loading').
+const { start, abort, text, result, status: streamStatus } = useStreamingCommand('@scope/pack/stream-cmd');
+
+// Connection status — DEFERRED STUB that THROWS today; do NOT call it. Use useRealtime for live updates.
+// const { isConnected } = useConnectionStatus();  // ← throws HuitzoError until the backend EPIC lands
+
+// Installed packs available to this dashboard
+const { packs, loading: packsLoading } = usePacks();
+
+// Locale — Intl formatters for the active locale (NOT an i18n t() function)
+const { locale, numberFormat, dateTimeFormat } = useLocale();
 ```
+
+Full hook set: `useCommand` (+ `refetchInterval`, typed `CommandRef` overload),
+`useHuitzo`, `useHubContext`, `useRealtime`, `useHubNavigation`, `useHubActions`,
+`useHubBreadcrumbs`, `useStreamingCommand`, `useConnectionStatus`, `usePacks`,
+`useLocale`.
+
+## Branding (hard requirement)
+
+Follow `dashboard-design.md`. In short:
+
+- Import `@huitzo/dashboard-sdk-react/styles` once (in `main.tsx`).
+- Wrap your tree in `<div className="huitzo-dashboard">` so brand tokens resolve.
+- Use brand-token CSS vars (`var(--color-*)`, `var(--space-*)`, `--shadow-*`,
+  `--radius-*`) and the `hz-*` primitives (`hz-card`, `hz-btn`, `hz-eyebrow`,
+  `hz-stat__number`, `hz-terminal`, ...). **Never** hardcode a hex/RGB/HSL color
+  or import a UI kit.
+- Three-tier typography (eyebrow → headline → body); accent color at most once
+  per viewport; verify both dark and light themes.
+
+## AI tooling awareness
+
+- **Typed commands** — Prefer `@huitzo/dashboard-codegen`, which generates a
+  typed const map (`import { commands } from '@huitzo/generated'`). Passing a
+  `CommandRef` to `useCommand` (`useCommand(commands.acme.claims.listClaims)`)
+  infers both the args and result types — no manual `<ResultType>` generic.
+- **MCP** — `@huitzo/dashboard-mcp` exposes the Hub's command registry to AI
+  tools (e.g. `huitzo://commands`) so you can discover available commands and
+  their shapes while authoring a dashboard.
 
 ## Rules
 
 1. **Documentation first** — Check `docs/components/` or `docs/pages/` before writing code
 2. **CSS Modules only** — `{Name}.module.css`, never global CSS
-3. **`useCommand` for all API calls** — Never raw `fetch` or direct API calls
-4. **Handle all states** — Every `useCommand` must handle loading, error, and success
-5. **ErrorBoundary at root** — Wrap `<App>` with error boundary, fallback calls `context.navigateToHub()`
-6. **Accessibility** — All interactive elements keyboard-navigable, `<button>` for clickable things
-7. **No DOM manipulation** — No `document.body`, no `window.location` changes
-8. **Functional components only** — React 19.2, hooks, no class components
-9. **TypeScript strict mode** — All types explicit, no `any`
-10. **Traceability headers** — Every `.tsx`/`.ts` file has `@implements` referencing its doc
-11. **No `dangerouslySetInnerHTML`** without DOMPurify sanitization
+3. **Brand tokens + `hz-*` primitives** — No hex/RGB/HSL colors, no UI kits; wrap in `huitzo-dashboard`. See `dashboard-design.md`
+4. **`useCommand` for all API calls** — Never raw `fetch` or direct API calls
+5. **Handle all states** — Every `useCommand` must handle loading, error, and success
+6. **ErrorBoundary at root** — Wrap `<App>` with error boundary, fallback calls `context.navigateToHub()`
+7. **Accessibility** — All interactive elements keyboard-navigable, `<button>` for clickable things
+8. **No DOM manipulation** — No `document.body`, no `window.location` changes
+9. **Functional components only** — React 19.2, hooks, no class components
+10. **TypeScript strict mode** — All types explicit, no `any`
+11. **Traceability headers** — Every `.tsx`/`.ts` file has `@implements` referencing its doc
+12. **No `dangerouslySetInnerHTML`** without DOMPurify sanitization
 
 ## Component File Structure
 

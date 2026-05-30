@@ -17,6 +17,7 @@ dashboard:
   description: "..."           # 10-200 characters
   visibility: private          # public | unlisted | organization | private
   author: Your Name
+  min_sdk_version: "1.0.0"     # Optional: minimum @huitzo/dashboard-sdk-react version (semver)
 
 pack_dependencies:             # Packs this dashboard consumes
   - scope: "@my-scope"
@@ -46,6 +47,11 @@ build:
 
 ### Version
 - Must be valid semver (e.g., `1.0.0`, `0.1.0-beta.1`)
+
+### Min SDK Version
+- Optional. When set, must be valid semver — `huitzo dashboard validate` rejects a non-semver `min_sdk_version`.
+- Declares the minimum `@huitzo/dashboard-sdk-react` version your dashboard needs. Hub compares its own SDK version against this before loading and refuses to load a dashboard that requires a newer SDK than Hub provides.
+- Defaults to `1.0.0` when omitted.
 
 ### Description
 - 10 to 200 characters

@@ -1,5 +1,7 @@
 ---
+name: draft-docs
 description: Draft documentation for a new command before implementation (docs-first workflow)
+argument-hint: "<command-name>"
 disable-model-invocation: true
 ---
 

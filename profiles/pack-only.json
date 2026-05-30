@@ -29,6 +29,7 @@
       "claude/agents/dashboard-reviewer.md",
       "claude/rules/hub-contract.md",
       "claude/rules/react-patterns.md",
+      "claude/rules/dashboard-design.md",
       "claude/rules/dashboard-manifest.md",
       "claude/skills/scaffold-dashboard/",
       "claude/skills/validate-dashboard/",

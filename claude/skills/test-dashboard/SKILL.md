@@ -1,4 +1,5 @@
 ---
+name: test-dashboard
 description: Run dashboard tests with Vitest
 disable-model-invocation: true
 ---

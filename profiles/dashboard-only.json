@@ -12,6 +12,7 @@
       "claude/agents/spec-architect.md",
       "claude/rules/hub-contract.md",
       "claude/rules/react-patterns.md",
+      "claude/rules/dashboard-design.md",
       "claude/rules/dashboard-manifest.md",
       "claude/rules/testing.md",
       "claude/rules/documentation.md",
