@@ -91,6 +91,10 @@ This environment enforces a **docs-first** workflow:
 | `/test-dashboard` | Dashboard | Run Vitest |
 | `/validate-dashboard` | Dashboard | Validate manifest, Hub contract, CSS isolation |
 | `/dashboard-dev` | Dashboard | Start Vite dev server |
+| `/dashboard-e2e` | Dashboard | End-to-end verify: mount → render → unmount → clean teardown |
+| `/sandbox` | Both | Run the pack against the local sandbox (start/status/exec/stop) |
+| `/publish` | Both | Ship a pack or dashboard to Huitzo (publish + grant) |
+| `/cli-non-interactive` | Both | Drive `huitzo` headlessly — `--output json`, envelope, exit codes |
 | `/lint-and-fix` | Both | Auto-fix: ruff + mypy (pack), tsc + eslint (dashboard) |
 
 ### Agents
