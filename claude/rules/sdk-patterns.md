@@ -159,32 +159,7 @@ return {"output": "some string that could be anything"}
 - Include metadata when useful (tokens used, processing time, confidence)
 - Keep response payloads reasonably sized
 
-## Class-Based Commands
-
-For commands with lifecycle hooks, use `HuitzoCommand`:
-
-```python
-from huitzo_sdk import HuitzoCommand, Context
-
-class MyCommand(HuitzoCommand):
-    name = "process-data"
-    namespace = "my-pack"
-    timeout = 120
-
-    async def execute(self, args: ProcessArgs, ctx: Context) -> dict:
-        return {"result": "done"}
-
-    def on_start(self, args):
-        """Called when command starts."""
-
-    def on_complete(self, result):
-        """Called after successful completion."""
-
-    def on_error(self, error):
-        """Called on failure."""
-```
-
-Use class-based commands only when you need lifecycle hooks. For most cases, the `@command` decorator is simpler and preferred.
+All commands use the `@command` decorator — see the [The @command Decorator](#the-command-decorator) section above.
 
 ## Command Registration
 
