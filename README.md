@@ -167,4 +167,10 @@ rm -rf /tmp/pack-claude-env
 
 ## License
 
-MIT
+Source-available under the **Huitzo Source-Available License** — see
+[LICENSE](LICENSE). The contents are public for transparency and to support
+Intelligence Pack development against the Huitzo platform; copying,
+modification, and redistribution require written permission from Huitzo Inc.
+
+"Huitzo" and the Huitzo logo are trademarks of Huitzo Inc. — see
+[TRADEMARKS.md](TRADEMARKS.md).
