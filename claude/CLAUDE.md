@@ -81,7 +81,7 @@ async def verb_noun(args: MyArgs, ctx: Context) -> dict:
 | HTTP | `ctx.http` | External APIs (domain-restricted) |
 | Email | `ctx.email` | Send emails |
 | Storage | `ctx.storage` | Key-value state (`scope="user"` or `"tenant"`) |
-| Files | `ctx.files` | File storage |
+| Files | `ctx.files` | File storage — `write` / `read` / `read_json` / `list` (returns dicts, key `path`) / `exists` / `get_url` |
 | Secrets | `ctx.secrets` | User-provided secrets (`require()` / `get()`) |
 | Telegram | `ctx.telegram` | Telegram messages |
 | SSH | `ctx.ssh` | Run commands on a user-configured remote host |

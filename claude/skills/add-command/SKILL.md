@@ -74,7 +74,7 @@ def mock_ctx() -> Context:
     ctx.http = AsyncMock()
     ctx.email = AsyncMock()
     ctx.telegram = AsyncMock()
-    ctx.files = AsyncMock()
+    ctx.files = AsyncMock()  # if stubbing list(), see testing.md (returns dicts keyed by "path")
     ctx.storage = AsyncMock()
     ctx.secrets = MagicMock()
     ctx.command_name = "test-command"
