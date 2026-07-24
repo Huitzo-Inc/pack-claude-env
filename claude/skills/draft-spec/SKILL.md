@@ -66,7 +66,7 @@ Identify all external dependencies:
   - `ctx.http` — External HTTP APIs (domain-restricted)
   - `ctx.email` — Send emails (notifications, reports)
   - `ctx.storage` — Tenant-isolated key-value storage
-  - `ctx.files` — File upload/download
+  - `ctx.files` — File storage (write/read/list)
   - `ctx.secrets` — User-provided API keys and credentials
   - `ctx.telegram` — Telegram messages
   - `ctx.ssh` — Remote command execution

@@ -71,6 +71,20 @@ async def test_command_uses_llm(mock_ctx):
     assert result["response"] == "response"
 ```
 
+### Mocking `ctx.files.list()`
+
+`ctx.files.list()` returns a list of **dicts** keyed by `path` — never plain
+strings. Stub it accordingly, or code iterating the result as strings will
+pass in tests and crash in production:
+
+```python
+mock_ctx.files.list.return_value = [
+    {"path": "data/file1.json"},
+    {"path": "data/file2.json"},
+]
+# list() returns dicts keyed by "path" — never plain strings
+```
+
 ## Pydantic Validation Testing
 
 Test that invalid inputs are rejected:

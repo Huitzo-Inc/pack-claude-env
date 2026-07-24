@@ -87,8 +87,16 @@ await ctx.email.send(to="user@example.com", subject="Report", body=body)
 # Telegram — send messages
 await ctx.telegram.send_message(chat_id=123, text="Alert!")
 
-# Files — file storage
-await ctx.files.upload(path="reports/output.pdf", content=pdf_bytes)
+# Files — file storage (no upload() — use write())
+await ctx.files.write("reports/output.json", json.dumps(report))
+await ctx.files.write("images/photo.png", image_bytes, binary=True)
+report = await ctx.files.read_json("reports/output.json")
+raw = await ctx.files.read("images/photo.png")  # bytes
+files = await ctx.files.list(prefix="reports/")
+# list() returns a list of dicts, e.g. [{"path": "reports/output.json"}, ...]
+# — the #1 mistake is treating entries as strings; always use entry["path"]
+if await ctx.files.exists("reports/output.json"):
+    url = await ctx.files.get_url("reports/output.json", expires=3600)
 
 # Storage — durable key/value state (scoped per user or per tenant)
 data = await ctx.storage.get("key", default={})
