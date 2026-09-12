@@ -25,18 +25,20 @@ Never overwrites an existing file. Never writes `.claude/settings.json`. Never r
 
 ### 2. Locate the environment source (read-only — never modify it)
 
-- If `$CLAUDE_PLUGIN_ROOT` is set, this is the **plugin channel**:
-  `ENV_ROOT="$CLAUDE_PLUGIN_ROOT"`, source = `"$ENV_ROOT/claude"`.
-- Else if `$CLAUDE_SKILL_DIR` is set, walk up from that directory looking for
-  `.claude-plugin/plugin.json`. If found at `<dir>`, this is still the plugin
-  channel: `ENV_ROOT="<dir>"`, source = `"<dir>/claude"`.
-- Else, starting from this `SKILL.md`'s own path, walk up parent directories
-  looking for `.claude-plugin/plugin.json` (a skill file always lives under
-  the plugin root, so this always terminates). Same handling as above if found.
-- Otherwise, this is the **seed channel**: `ENV_ROOT` is the project root,
-  source = `.claude` (the copy the CLI already placed there). Copying "from"
-  `.claude/rules/` and `.claude/hooks/` to themselves is inherently a no-op —
-  in this channel the useful work is steps 5–7, not the file copies in step 4.
+`ENV_ROOT = ${CLAUDE_PLUGIN_ROOT}` and `SKILL_DIR = ${CLAUDE_SKILL_DIR}` — Claude Code
+substitutes both placeholders into this skill body before the model ever reads it, so
+these two lines already hold their real values (or don't) by the time you get here.
+
+- If `ENV_ROOT` still reads literally as a `${...}` placeholder (the substitution did
+  not happen), this is the **seed channel**: the project already has its own copy of
+  the environment. Source = `.claude` (the copy the CLI already placed there); the
+  project's `.claude/` is the `.../.claude/skills/huitzo-init` ancestor of `SKILL_DIR`
+  (strip the trailing `/skills/huitzo-init` to get it). Copying "from" `.claude/rules/`
+  and `.claude/hooks/` to themselves is inherently a no-op — in this channel the useful
+  work is steps 5–7, not the file copies in step 4.
+- Otherwise, this is the **plugin channel**: `ENV_ROOT` is the plugin's install
+  directory, source = `"$ENV_ROOT/claude"`. The project's `.claude/` is the ordinary
+  `.claude/` at the project root.
 
 ### 3. Detect the profile (skip if `--profile` was given)
 
@@ -62,10 +64,17 @@ missing), **skip-exists** (destination already present — never touched),
     `pack-manifest.md`. (`testing.md` applies to both — never dropped.)
   - `full-stack` drops nothing.
 - **Hooks** — `<source>/hooks/*.sh` into `.claude/hooks/`, but **only in the
-  seed channel**. In the plugin channel, skip this entirely and say why: the
-  plugin already runs these hooks itself (via `hooks/hooks.json` →
-  `${CLAUDE_PLUGIN_ROOT}/claude/hooks/*.sh`) — copying them into `.claude/`
-  would just leave an inert, unused second copy.
+  seed channel**. In the plugin channel, skip the rest of these hooks entirely and
+  say why: the plugin already runs them itself (via `hooks/hooks.json` →
+  `${CLAUDE_PLUGIN_ROOT}/claude/hooks/*.sh`) — copying them into `.claude/` would
+  just leave an inert, unused second copy. The one exception, in **every** channel
+  including plugin: `docs-mcp.sh` and the `_lib.sh` it sources — always copy both
+  into `.claude/hooks/` (create the directory if missing) and `chmod +x` them. The
+  reason is the `.mcp.json` entry below: its `command` is a plain path Claude Code
+  spawns directly, and a project-scoped `.mcp.json` cannot reference
+  `${CLAUDE_PLUGIN_ROOT}` (there is no "current plugin" for it to resolve against),
+  so the hook these two files implement must exist under the project's own
+  `.claude/hooks/` regardless of channel.
 - **`CLAUDE.md`** (project root) — create it from
   `templates/CLAUDE.md.tmpl` if the file does not exist; if it exists, replace
   only the `<!-- huitzo:begin -->...<!-- huitzo:end -->` block (create the
@@ -78,15 +87,19 @@ missing), **skip-exists** (destination already present — never touched),
 - **`.mcp.json`** (project root) — only if `docs/` exists in the project.
   Create the file from `templates/mcp.json.tmpl` if absent; if it exists,
   merge in the `pack-docs` key only if that key is not already present (never
-  touch any other key in the file). The command path depends on channel:
-  - Seed channel: `"./.claude/hooks/docs-mcp.sh"`.
-  - Plugin channel: `"${CLAUDE_PLUGIN_ROOT}/claude/hooks/docs-mcp.sh"`.
-  `templates/mcp.json.tmpl` ships the seed-channel spelling; substitute the
-  plugin path when applying it in the plugin channel. `.mcp.json` env values
-  are never expanded by Claude Code, so this entry carries no `env` block —
-  `claude/hooks/docs-mcp.sh` resolves `docs/` from its own CWD instead.
-  After writing, ensure the hook script this command points at is executable.
-  If `docs/` does not exist, skip this step entirely (nothing to point at).
+  touch any other key in the file). The command is the **same string in every
+  channel**: `"./.claude/hooks/docs-mcp.sh"`. Never write
+  `${CLAUDE_PLUGIN_ROOT}/claude/hooks/docs-mcp.sh` here — `.mcp.json` commands
+  are spawned as plain paths and Claude Code does not expand
+  `${CLAUDE_PLUGIN_ROOT}` (or any variable) inside a project-scoped
+  `.mcp.json`; that spelling fails with `ENOENT` plus a "Missing environment
+  variables" warning. `templates/mcp.json.tmpl` already ships the working
+  spelling — apply it unchanged, in both channels. `.mcp.json` env values are
+  never expanded by Claude Code either, so this entry carries no `env` block —
+  `docs-mcp.sh` resolves `docs/` from its own CWD instead. After writing,
+  ensure `.claude/hooks/docs-mcp.sh` and `.claude/hooks/_lib.sh` (copied by the
+  hooks step above, in every channel) are executable. If `docs/` does not
+  exist, skip this step entirely (nothing to point at).
 
 ### 5. Print the plan, then confirm
 
