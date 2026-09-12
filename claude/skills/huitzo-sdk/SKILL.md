@@ -58,7 +58,7 @@ def command(
 **Sync vs async — both supported.** A coroutine function is awaited directly
 under `asyncio.wait_for(fn(args, ctx), timeout=...)`. A plain sync function
 runs via `asyncio.wait_for(asyncio.to_thread(fn, args, ctx), timeout=...)`.
-Exceeding the timeout raises `CommandTimeoutError`, not `TimeoutError`.
+Exceeding the timeout raises `CommandTimeoutError`, not `TimeoutError` ❌.
 
 **`streaming=True`** requires the function to be an `async def` that `yield`s
 (an async generator). Mismatches raise `ValueError` at **registration** time
