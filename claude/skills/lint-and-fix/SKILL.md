@@ -1,57 +1,64 @@
 ---
 name: lint-and-fix
-description: Run ruff check, ruff format, and mypy to lint and fix code
+description: Auto-fix lint/format/type issues for a pack (ruff, mypy) or dashboard (typecheck, lint).
 disable-model-invocation: true
 ---
 
 # /lint-and-fix
 
-Lint and fix the pack's source code.
+Lint and fix source code. Never touch legal-header or SPDX lines while
+"fixing" anything — those are a legal decision, not a style one.
 
-## Steps
+## Pack (Python) — if `huitzo.yaml` exists
 
-1. **Check the virtual environment** has ruff and mypy. If not:
+1. Confirm `ruff` and `mypy` are available in the active environment
+   (`venv/`/`.venv/`, or via `uv run`). If not, tell the user to
+   `pip install -e ".[dev]"` first.
+
+2. **Auto-fix and format:**
+
    ```bash
-   source venv/bin/activate && pip install ruff mypy
+   ruff check --fix .
+   ruff format .
    ```
 
-2. **Run ruff check with auto-fix**:
+   Report anything `ruff check` couldn't auto-fix, and which files
+   `ruff format` rewrote.
+
+3. **Type check** (informational — mypy has no auto-fix):
+
    ```bash
-   source venv/bin/activate && ruff check --fix .
+   mypy --strict src/
    ```
-   Report any issues that couldn't be auto-fixed.
 
-3. **Run ruff format**:
+   Report each error; don't attempt to guess-fix type errors without
+   understanding the underlying issue.
+
+## Dashboard (TypeScript/React) — if `huitzo-dashboard.yaml` exists
+
+1. **Type check** — always available in a scaffolded dashboard:
+
    ```bash
-   source venv/bin/activate && ruff format .
+   npm run typecheck
    ```
-   Report which files were reformatted.
 
-4. **Run mypy in strict mode**:
+2. **Lint** — check `package.json` first; don't assume a linter is
+   configured. Look for a `lint` script and for a Biome (`biome.json`) or
+   ESLint (`.eslintrc*`, `eslint.config.*`) config file before running
+   anything:
+
    ```bash
-   source venv/bin/activate && mypy --strict src/
+   npm run lint     # only if package.json defines this script
    ```
-   Report any type errors.
 
-5. **Dashboard linting** (if `huitzo-dashboard.yaml` exists):
+   If neither a `lint` script nor a Biome/ESLint config exists, say so rather
+   than inventing a command — skip this step instead of guessing at flags.
 
-   Run TypeScript type checking:
-   ```bash
-   npx tsc --noEmit 2>&1
-   ```
-   Report any type errors.
+## Summarize
 
-   Run ESLint (if configured):
-   ```bash
-   npx eslint src/ 2>&1
-   ```
-   Report any lint issues.
-
-6. **Summarize results**:
-   - Number of issues auto-fixed by ruff (pack)
-   - Number of files reformatted (pack)
-   - Number of remaining ruff issues (pack)
-   - Number of mypy errors (pack)
-   - Number of TypeScript errors (dashboard)
-   - Number of ESLint issues (dashboard)
-   - For any remaining issues, suggest fixes.
+- Pack: issues auto-fixed, files reformatted, remaining ruff issues, mypy
+  error count.
+- Dashboard: TypeScript error count, lint issue count (or "no linter
+  configured").
+- For anything left unresolved, name the file and suggest the fix — don't
+  just say "there are errors."

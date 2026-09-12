@@ -7,9 +7,10 @@ disable-model-invocation: true
 
 # /publish
 
-Ship this project to Huitzo — the final **ship** rung of the loop: scaffold →
-develop → test → sandbox → **publish**. Use this skill for a pack
-(`huitzo pack publish`) or a dashboard (`huitzo dashboard publish`).
+> Verified against the Huitzo CLI surface as of 2026-09 (`huitzo <cmd> --help` is authoritative).
+
+Ship this project — the final **ship** rung of the loop: scaffold → develop →
+test → sandbox → **publish**.
 
 Detect the target from the manifest in the current directory:
 
@@ -19,122 +20,103 @@ Detect the target from the manifest in the current directory:
 ## Visibility & namespace come from the manifest, never a flag
 
 Neither `pack publish` nor `dashboard publish` accepts `--visibility` or
-`--namespace`. They read those fields from the manifest. To publish privately,
-set the field in the manifest before publishing:
+`--namespace`. They read `pack.namespace` / `pack.visibility` (or the
+dashboard equivalents) straight from the manifest, defaulting to `private`.
+Your namespace must match your personal namespace or an organization you
+belong to — a mismatch fails registration with an actionable message naming
+the namespace that would work. To publish under a different visibility or
+namespace, edit the manifest first, not the command line.
 
-- Pack: `pack.namespace`, `pack.visibility` (`private` by default), `pack.version`.
-- Dashboard: `dashboard.namespace`, `dashboard.visibility` (`private` by default), `dashboard.version`.
+## Preflight (both targets)
 
-Your namespace/scope must match your personal namespace or an organization you
-belong to, or the backend rejects the upload.
+1. **Bump the version.** A version is immutable once registered — re-publishing
+   the same `pack.version` / `dashboard.version` is rejected. Version must
+   increase.
+2. **Test.** `huitzo pack test` (packs only — no `dashboard test` command).
+3. **Validate strictly.** `huitzo pack validate --strict` or
+   `huitzo dashboard validate`.
+4. **Build.** Packs build automatically on publish if `dist/` is empty;
+   dashboards MUST run `huitzo dashboard build` first — `publish` fails
+   without a build output present.
 
----
-
-## Publish a pack — `huitzo pack publish`
+## Publish a pack
 
 ```bash
+huitzo pack test
+huitzo pack validate --strict
 huitzo pack publish
 ```
 
-What it does (from the real CLI):
+| Flag | Meaning |
+|---|---|
+| `--no-build` | Break-glass: publish the existing `dist/` wheel as-is instead of clean-building from source. Wheel/source parity is then on you. |
+| `--skip-capability-check` | Skip the pre-publish extension-capability cross-check against the backend (logged; not recommended). |
 
-1. Loads `huitzo.yaml` and authenticates.
-2. Runs a **capability cross-check** against the backend for any `extensions:`
-   your pack requires. Break-glass override: `--skip-capability-check`
-   (the only flag `pack publish` accepts; it is logged).
-3. Finds a wheel in `dist/`; if none, it builds one (`uv build --wheel`).
-4. `POST /api/v1/packs` to register the pack (a `409` "already registered" is
-   fine — it resolves the existing pack and adds a new version).
-5. Uploads the wheel as `version`.
+By default, publish **clean-builds the wheel from current source** so the
+uploaded artifact always matches HEAD. Registering the pack (`POST
+/api/v1/packs`) returns `409` if it already exists — that's fine, the CLI
+resolves the existing pack and adds this build as a new version. Success data
+includes the registered pack and its commands.
 
-On success the JSON `data` is the backend's response, including the registered
-`commands`. Bump `pack.version` for each release — re-publishing the same
-version is rejected by the backend.
+`pyproject.toml` is auto-generated from `huitzo.yaml`; never hand-edit it —
+run `huitzo pack sync` if publish complains it's stale.
 
-Pre-flight in order:
-
-```bash
-huitzo pack validate --strict     # or /validate-pack
-huitzo pack test                  # or /test-pack
-huitzo pack publish
-```
-
-> `pack build` does **not** run validation — always validate first.
-> `pyproject.toml` is auto-generated from `huitzo.yaml`; never hand-edit it
-> (run `huitzo pack sync` if publish complains about a stale `pyproject.toml`).
-
----
-
-## Publish a dashboard — `huitzo dashboard publish`
+## Publish a dashboard
 
 ```bash
-huitzo dashboard build                # produces dist/main.js
-huitzo dashboard publish --dry-run    # smoke test — bundles, prints contents, uploads nothing
+huitzo dashboard build                # produces the manifest's build output
+huitzo dashboard validate
+huitzo dashboard publish --dry-run    # bundles + reports contents, uploads nothing
 huitzo dashboard publish
 ```
 
-`publish` is the only flag-bearing dashboard publish command — it takes a single
-flag, `--dry-run` (simulate without uploading). What it does:
+`publish` takes one flag, `--dry-run`. Sequence: validate the manifest again,
+confirm the build output directory exists (fails with "Run `huitzo dashboard
+build` first" if not), tarball it (skipping symlinks), then either stop and
+report `{"name","version","dry_run":true,"size_kb"}` (`--dry-run`) or register
+(`POST /api/v1/dashboards`, `409` on an existing dashboard is fine) and upload
+the tarball as a new version.
 
-1. Loads + validates `huitzo-dashboard.yaml`.
-2. Requires the build output (`dist/` with the manifest's `entry_point`, default
-   `main.js`). **Run `huitzo dashboard build` first** or publish fails.
-3. Tarballs `dist/` (skipping symlinks for safety).
-4. `--dry-run` stops here and reports `{name, version, dry_run: true, size_kb}`.
-5. Otherwise: `POST /api/v1/dashboards` to register (a `409` is fine), then
-   uploads the tarball as a new `version`.
+### Grant access — `huitzo dashboard grant`
 
-Success envelope:
-
-```json
-{"ok": true, "data": {"name": "my-dashboard", "version": "0.1.0", "url": "https://hub.huitzo.com/d/my-dashboard"}}
-```
-
-Pre-flight: `/validate-dashboard` (or `huitzo dashboard validate`) →
-`/test-dashboard` → `/dashboard-e2e` → build → publish.
-
-### Grant org-visibility access — `huitzo dashboard grant`
-
-For a dashboard with `visibility: organization`, grant a specific tenant access:
+For a dashboard visible to `organization`, grant a specific tenant access:
 
 ```bash
-huitzo dashboard grant <dashboard-slug> <tenant-uuid>
+huitzo dashboard grant <dashboard-name> <tenant-uuid> [--scope SCOPE]
 ```
 
-Both arguments are positional (no flags). The dashboard name must be kebab-case
-and the tenant must be a **UUID** — organization-slug → UUID resolution is **not
-yet available** (the backend `GET /api/v1/organizations?slug=` endpoint does not
-exist yet), so you must pass the raw tenant UUID. Success returns
-`{dashboard, tenant_id, granted}`.
+Both `<dashboard-name>` and `<tenant-uuid>` are positional arguments.
 
-### Not yet implemented (stubbed in the CLI)
+### What visibility means
 
-Be honest about these — they exist as commands but the backend endpoints are
-missing, so they print a warning and **exit 1**:
+- **private** — only you (the publishing account) can install/run it.
+- **organization** — members of tenants you explicitly `grant` can install/run it.
+- **unlisted** — installable by direct reference, not shown in listings.
+- **public** — anyone can discover and install it.
 
-- `huitzo dashboard revoke <dashboard> <tenant-uuid>` — *"Backend revoke endpoint not yet implemented."*
-- `huitzo dashboard share <dashboard> [--expires 1d|7d|30d|never]` — *"Backend share endpoint not yet implemented."*
+Set the level in the manifest before publishing; it isn't a publish-time flag.
 
-Do not build workflows that depend on `revoke`/`share` until the backend ships them.
+## Post-publish verification
 
----
+```bash
+huitzo --output json pack list             # confirm the new version registered
+huitzo --output json run @scope/pack/cmd --args '{}'   # smoke-test it live
+```
 
-## Steps
+For a dashboard, confirm in the Hub UI or with `huitzo dashboard validate`
+against the published manifest.
 
-1. **Detect target** from the manifest in the cwd (pack vs dashboard).
-2. **Set visibility/namespace** in the manifest (not via a flag) if the defaults
-   aren't what you want.
-3. **Validate + test** (`/validate-*`, `/test-*`; dashboards also `/dashboard-e2e`).
-4. **Build** — dashboards MUST `huitzo dashboard build` first; packs build
-   automatically if `dist/` is empty.
-5. **Dry-run** (dashboards) — `huitzo dashboard publish --dry-run`.
-6. **Publish** — `huitzo pack publish` or `huitzo dashboard publish`.
-7. **Grant** (org dashboards only) — `huitzo dashboard grant <slug> <tenant-uuid>`.
+## Rollback
+
+No documented rollback path for a published pack or dashboard version —
+publish a new, higher version instead. (`huitzo rollback` manages the
+*launcher-installed CLI itself*, not published packs/dashboards — do not
+conflate the two.)
 
 ## JSON / agent mode
 
-Add the **global** `--output json` flag BEFORE the subcommand
-(`huitzo --output json pack publish`). Note that `publish` commands print
-human-format progress lines on stdout/stderr even in JSON mode — parse the final
-`{...}` envelope line, not the whole stream, and check the exit code. See
-`/cli-non-interactive` for the envelope, exit codes, and full publish recipes.
+Add the **global** `--output json` flag before the subcommand
+(`huitzo --output json pack publish`). Both publish commands print
+human-format progress lines even in JSON mode — parse the **last** `{...}`
+line and trust the exit code, don't scan the whole stream. See the
+`/cli-non-interactive` skill for the envelope shape and exit codes.

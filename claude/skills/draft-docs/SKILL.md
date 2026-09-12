@@ -1,95 +1,84 @@
 ---
 name: draft-docs
-description: Draft documentation for a new command before implementation (docs-first workflow)
-argument-hint: "<command-name>"
+description: Draft a command's documentation before implementation (docs-first workflow).
+argument-hint: "<verb-noun>"
 disable-model-invocation: true
 ---
 
 # /draft-docs
 
-Draft documentation for a new command. This is the first step in the docs-first workflow — documentation defines the contract, implementation follows.
+Write the documented contract for a command *before* any code exists.
+Documentation defines the contract; implementation (`/add-command`) follows it.
 
 ## Steps
 
-1. **Parse the command name from `$ARGUMENTS`**. The name should be in `verb-noun` kebab-case format (e.g., `analyze-text`, `generate-report`). If no name is provided, ask the user.
+1. **Parse the command name from `$ARGUMENTS`** — `verb-noun` kebab-case. Ask
+   the user if it's missing.
 
-2. **Read `huitzo.yaml`** to get the pack namespace and understand existing commands.
+2. **Read `huitzo.yaml`** for the pack's namespace and existing commands, and
+   `docs/commands/README.md` (if present) for documentation conventions
+   already in use.
 
-3. **Read `docs/commands/README.md`** to understand the existing documentation structure and any conventions used.
+3. **Check for overlap before writing anything new.** If a project docs MCP
+   server is configured (tools like `search_documentation` and
+   `get_table_of_contents`), use it to check whether an existing doc already
+   covers this behavior. If those tools aren't available, `grep`/read
+   `docs/commands/` directly.
 
-4. **Use the MCP documentation tools** to check for related existing documentation:
-   - Use `search_documentation` to find related docs
-   - Use `get_table_of_contents` to see the full structure
-
-5. **Ask the user key questions** about the new command:
-   - What problem does it solve?
-   - What are the main arguments?
+4. **Ask the user the five key questions** (skip any already answered):
+   - What problem does this command solve?
+   - What are its main arguments?
    - What does it return?
-   - What context services does it need (LLM, HTTP, email, etc.)?
-   - Any external APIs or secrets required?
+   - What `ctx.*` services does it need (LLM, HTTP, email, files, ...)?
+   - Any external APIs or user secrets required?
 
-6. **Create the command documentation** at `docs/commands/{command-name}.md` using this template:
+5. **Write `docs/commands/{name}.md`:**
 
-```markdown
----
-title: {Command Name}
-tags: [command, {relevant-tags}]
-category: commands
-order: {next-order-number}
----
+   ```markdown
+   ---
+   title: {name}
+   tags: [command]
+   category: commands
+   ---
 
-# {command-name}
+   # {name}
 
-{Brief description}.
+   {One-line summary.}
 
-## Overview
+   ## Arguments
 
-{Detailed description of what this command does, why it exists, and the problem it solves.}
+   | Argument | Type | Required | Default | Description |
+   |----------|------|----------|---------|-------------|
+   | ... | ... | ... | ... | ... |
 
-## Arguments
+   ## Returns
 
-| Argument | Type | Required | Default | Description |
-|----------|------|----------|---------|-------------|
-| ... | ... | ... | ... | ... |
+   \`\`\`json
+   {
+     "field": "type — description"
+   }
+   \`\`\`
 
-### Validation Rules
+   ## Errors
 
-- {argument}: {validation rule}
+   | Error | Condition | User action |
+   |-------|-----------|-------------|
+   | ... | ... | ... |
 
-## Returns
+   ## Examples
 
-\`\`\`json
-{
-  "field": "type — description"
-}
-\`\`\`
-
-## Errors
-
-| Error | Condition | User Action |
-|-------|-----------|-------------|
-| ... | ... | ... |
-
-## Examples
-
-### Basic usage
-Input: `{...}`
-Output: `{...}`
-
-## Context Services Used
-
-- `ctx.{service}` — {what it's used for}
-```
-
-7. **Update `docs/commands/README.md`** to include the new command in the list.
-
-8. **Print a summary** of what was documented and remind the user that implementation comes next:
+   ### Basic usage
+   Input: `{...}`
+   Output: `{...}`
    ```
-   Documentation drafted for {command-name}:
-     docs/commands/{command-name}.md
 
-   Next steps:
-     1. Review the documentation
-     2. Use /add-command {command-name} to scaffold the implementation
-     3. Implement the business logic based on the documentation
+6. **Update `docs/commands/README.md`** (create it if it doesn't exist) to
+   list the new command.
+
+7. **Summarize and hand off:**
+
+   ```
+   Documentation drafted for {name}: docs/commands/{name}.md
+
+   Next: /add-command {name} to scaffold the implementation.
    ```
