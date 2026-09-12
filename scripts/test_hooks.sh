@@ -85,7 +85,8 @@ echo "docs-mcp.sh"
 expect_stdout_contains "resolves docs root from CWD when unexpanded" "$TMP/project/docs"
 rm -rf "$TMP/project/docs"
 ( cd "$TMP/project" && timeout 5 bash "$HOOKS/docs-mcp.sh" >"$TMP/out" 2>"$TMP/err" ); got=$?
-if [ "$got" -eq 0 ]; then pass "exits 0 when docs/ is missing"; else fail "exits $got when docs/ is missing"; fi
+if [ "$got" -eq 1 ]; then pass "exits 1 with a clear message when docs/ is missing"; else fail "exits $got when docs/ is missing (wanted 1)"; fi
+expect_stderr_contains "names the missing docs root" "docs/ not found"
 
 echo
 if [ "$FAILURES" -gt 0 ]; then echo "test_hooks: $FAILURES failure(s)"; exit 1; fi

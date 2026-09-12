@@ -275,8 +275,8 @@ def check_text(root: Path, rep: Report) -> None:
                 continue
             if label.startswith("builtin-shadowing") and "dashboard" in rel:
                 continue  # the dashboard SDK ships its own TimeoutError class (TypeScript)
-            if rel == "CHANGELOG.md":
-                continue
+            if rel == "CHANGELOG.md" or rel.startswith("scripts/"):
+                continue  # validators name the wrong tokens on purpose
             for m in pat.finditer(text):
                 line = text.count("\n", 0, m.start()) + 1
                 line_start = text.rfind("\n", 0, m.start()) + 1
