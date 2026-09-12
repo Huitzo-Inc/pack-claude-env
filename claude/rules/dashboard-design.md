@@ -53,8 +53,8 @@ writing CSS:
 - `hz-dashboard__*` — `Dashboard` template body (`content`, `section`,
   `section-title`, `metrics`, `metric`, `label`, `value`, `detail`,
   `table-wrap`, `table`, `list`, `notice`, `details`, `empty`)
-- `hz-form__*` — `Form` template body (`field`, `description`, `error`,
-  `submit`)
+- `hz-form` (root) + `hz-form__*` — `Form` template body (`field`,
+  `description`, `error`, `submit`)
 
 ❌ **`hz-arch` does not exist.** No CSS ships for it — do not use `hz-arch`/`hz-arch__chip`/`hz-arch__dot`/`hz-arch__label` for architecture diagrams or anything else. Compose `hz-card` + `hz-rail` + plain flex/grid instead.
 

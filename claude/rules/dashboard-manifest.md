@@ -18,7 +18,9 @@ dashboard:
   namespace: "mydash"            # short, lowercase
   version: "1.0.0"               # valid semver
   description: "Dashboard for managing widgets"   # 10-200 characters
-  visibility: "organization"     # public | unlisted | organization | private (default: organization)
+  visibility: "organization"     # public | unlisted | organization | private — always set this
+                                  # explicitly (the docs default is "organization", but the CLI's
+                                  # own scaffold writes "private" — don't rely on either default)
 
 pack_dependencies: []            # Intelligence Packs this dashboard consumes
 
@@ -38,7 +40,7 @@ build:
 | `namespace` | Yes | — | Short namespace, lowercase |
 | `version` | Yes | — | Semantic version (`MAJOR.MINOR.PATCH`) |
 | `description` | Yes | — | 10-200 characters, meaningful (not just the name repeated) |
-| `visibility` | No | `organization` | `public` \| `unlisted` \| `organization` \| `private` |
+| `visibility` | No | `organization` (docs) / `private` (CLI scaffold) | `public` \| `unlisted` \| `organization` \| `private` — **always set it explicitly**; the documented default and the CLI's own scaffolded default disagree |
 | `author` | No | — | Author or company name |
 | `license` | No | `proprietary` | License identifier |
 | `min_sdk_version` | No | `1.0.0` | Must be valid semver — declares the minimum `@huitzo/dashboard-sdk-react` version this dashboard needs |

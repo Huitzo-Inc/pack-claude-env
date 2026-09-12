@@ -8,7 +8,7 @@ paths:
 # Error Handling
 
 Full hierarchy with constructor kwargs: the `huitzo-sdk` skill. This rule is
-the condensed, always-loaded version.
+the condensed, path-scoped version (the always-on core is `00-huitzo-core.md`).
 
 ## Hierarchy (real class names — never the Python builtins)
 
@@ -94,9 +94,11 @@ to fix and where, not the raw exception text.
    ctx.log.error("auth failed", key_name="USER_API_KEY")   # ✅ — name it, don't show it
    ```
 
-   `ValidationError.value` and `HTTPError.url`/`response_body` are
-   auto-redacted by the SDK when the field name looks secret-shaped — but
-   that's a backstop, not a license to pass secrets into error payloads.
+   `ValidationError.value` is redacted when the `field` name looks
+   secret-shaped, and `HTTPError.url` is always redacted. `HTTPError
+   .response_body` is only **truncated to 200 chars** — never redacted —
+   so never put a response body you haven't vetted into an error; a token
+   echoed back by a 4xx response is not scrubbed for you.
 
 3. **Use the most specific exception.** `SecretsError` over `CommandError`
    when a secret is missing; `ExternalAPIError` over a bare `Exception`

@@ -40,25 +40,32 @@ Validate the Intelligence Pack's structure and quality.
       service (see the permission↔service table in the `pack-manifest` rule)
       and is also present in `policy.allowed_actions`.
 
-   e. **Traceability headers.** Every `.py` file under `src/` and `tests/` has
-      a module docstring with an `Implements:` block pointing at a
-      `docs/commands/*.md` file that exists.
-
-   f. **Lint/type check**, if the tools are installed:
+   e. **Lint/type check**, if the tools are installed:
 
       ```bash
       ruff check .
       mypy --strict src/
       ```
 
-3. **Report as a checklist:**
+3. **Checks the CLI does *not* do — verify these yourself, every time.**
+   `huitzo pack validate --strict` never inspects header content (checked by
+   running the real validator, not by reading its source): it stops at
+   manifest/entry-point/permission checks. Traceability headers are enforced
+   only by this environment's `post-edit`/`pre-stop` hooks, non-blocking:
+
+   f. **Traceability headers.** Every `.py` file under `src/` and `tests/` has
+      a module docstring with an `Implements:` block pointing at a
+      `docs/commands/*.md` file that exists. Quick check:
+      `grep -L "Implements:" src/**/*.py` (empty output = every file has one).
+
+4. **Report as a checklist:**
 
    ```
    Manifest (huitzo.yaml)     ✓ valid
    Entry points               ✓ 3/3 resolve
    Namespace match             ✓ consistent
    Permission backing          ✓ consistent
-   Traceability headers        ✓ 6/6 files
    Linting (ruff)               ✓ no issues
    Type checking (mypy)         ✗ 2 errors (list them)
+   Traceability headers        ✓ 6/6 files  (self-checked — not run by the CLI)
    ```

@@ -9,7 +9,8 @@ paths:
 # Testing
 
 Full patterns and a worked mock-`Context` example: the `huitzo-sdk` skill.
-This rule is the condensed, always-loaded version.
+This rule is the condensed, path-scoped version (the always-on core is
+`00-huitzo-core.md`).
 
 ## What a scaffolded pack actually has
 

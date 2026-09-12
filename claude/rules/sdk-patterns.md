@@ -8,8 +8,9 @@ paths:
 # SDK Patterns
 
 Full reference (exact signatures, every service, testing, anti-patterns): the
-`huitzo-sdk` skill. This rule is the always-loaded, condensed version for
-writing command code — it must never contradict that skill.
+`huitzo-sdk` skill. This rule is the condensed, path-scoped version for
+writing command code (the always-on core is `00-huitzo-core.md`) — it must
+never contradict that skill.
 
 ## Imports
 

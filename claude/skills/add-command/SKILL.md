@@ -63,7 +63,7 @@ documented contract must exist before its implementation.
    async def {command_func}(args: {ArgsClass}, ctx: Context) -> dict:
        """{one-line summary, from the doc}."""
        # TODO: implement per docs/commands/{command_file}.md
-       return {{"result": args.input}}
+       return {"result": args.input}
    ```
 
    `tests/test_{command_file}.py` — follow the pack's existing test pattern

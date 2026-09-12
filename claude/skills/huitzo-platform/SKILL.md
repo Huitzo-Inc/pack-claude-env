@@ -255,13 +255,24 @@ commands:
 - `mcp:call` gates any command that touches `ctx.mcp`. Secrets for the
   *server itself* (e.g. `GITHUB_TOKEN`) are ordinary Tier-3 user secrets,
   interpolated with `${secrets.NAME}`.
-- **Discover tools:** `huitzo mcp list-servers`, `huitzo mcp list-tools
-  <server>` (add `--schema` for the input schema).
-- **Testing:** mock `ctx.mcp.call()` — `AsyncMock(return_value=...)` —
-  rather than spawning a real server.
+- **Discover tools from inside a command** — there is no CLI for this
+  (`huitzo mcp` has only `setup docs`; see `cli-non-interactive`):
 
-See `huitzo-sdk` for the exact `ctx.mcp.call(server, tool, arguments)`
-signature and error types.
+  ```python
+  # pseudocode — https://docs.huitzo.ai/docs/sdk/mcp
+  tools = await ctx.mcp.list_tools(server)   # server: str | None = None
+  schema = await ctx.mcp.get_tool_schema(server, tool)
+  info = ctx.mcp.servers                     # dict[str, MCPServerInfo]
+  ```
+- **Testing:** mock `ctx.mcp.call()` — `AsyncMock(return_value=...)` —
+  rather than spawning a real server. `ctx.mcp` is typed `Any` in the SDK
+  wheel (no public MCP client class/Protocol to import), so treat all of the
+  above as the documented contract from https://docs.huitzo.ai/docs/sdk/mcp,
+  not an importable SDK type — that page also has the exact `ctx.mcp.call
+  (server, tool, arguments, timeout=None)` signature and the
+  `MCPConnectionError` / `MCPToolError` / `MCPTimeoutError` /
+  `MCPSchemaError` hierarchy (not `huitzo-sdk`, which deliberately declines
+  to state one).
 
 ## Secrets model
 

@@ -97,11 +97,18 @@ Dashboard source files use JSDoc-style traceability:
 
 ## Validation
 
-```bash
-# Check all files have traceability headers
-# Pack:
-huitzo pack validate --strict
+The CLI does **not** check traceability headers — `huitzo pack validate
+--strict` checks the manifest, pipeline permissions, and package layout;
+`huitzo dashboard validate` checks the manifest and bundle exports. Neither
+looks at header content. The real enforcement is this environment's
+`post-edit`/`pre-stop` hooks, which nudge (non-blocking) whenever a matching
+file is written or left uncommitted without one. Run this yourself before
+either CLI command:
 
-# Dashboard:
-huitzo dashboard validate
+```bash
+# Pack — files missing the header:
+grep -L "Implements:" src/**/*.py
+
+# Dashboard — files missing the header:
+grep -L "@implements" src/**/*.tsx src/**/*.ts
 ```

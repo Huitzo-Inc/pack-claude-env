@@ -40,7 +40,9 @@ sibling ordering within a category; use the next free integer.
 
 1. **Read before writing.** Use the `mcp__pack-docs__*` tools
    (`search_documentation`, `get_table_of_contents`, `get_document`) to see
-   what already exists before drafting something new or contradictory.
+   what already exists before drafting something new or contradictory. The
+   server is optional — if the `pack-docs` tools are not available, Glob/Grep
+   `docs/` instead.
 2. **Read the manifest**, not `pyproject.toml`, for pack metadata —
    `huitzo.yaml` is the single source of truth; `pyproject.toml` is
    generated from it and will be stale if you read it instead.

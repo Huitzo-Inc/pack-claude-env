@@ -90,7 +90,7 @@ interface HuitzoProviderProps {
 }
 ```
 
-Creates one `HuitzoClient` on first render (later context changes are ignored — recreating the client would drop auth state). On mount, if a token is present, fetches the user and the installed-packs list in parallel; a 401 from the user fetch clears auth and calls `onAuthError`; any other fetch error is aggregated into `initError` (both errors, not just the last one).
+Creates one `HuitzoClient` on first render (later context changes are ignored — recreating the client would drop auth state). On mount, if a token is present, fetches the user, then the installed-packs list — sequentially, not in parallel; a 401 from the user fetch clears auth and calls `onAuthError`; any other fetch error is aggregated into `initError` (both errors, not just the last one).
 
 `useHuitzo(): HuitzoContextValue` is the gateway hook every other hook calls internally:
 
@@ -270,7 +270,7 @@ Dark is the default (`:root`); light overrides apply under `[data-theme="light"]
 | Inline | `.hz-kbd`, `.hz-code` |
 | `TemplateFrame` chrome (5.1.0+) | `.hz-tf` + `__header`, `__eyebrow`, `__title`, `__description`, `__actions`, `__status`, `__body`, `__evidence`, `__evidence-link`, `__evidence-meta` |
 | `Dashboard` template (5.1.0+) | `.hz-dashboard__content`, `__section`, `__section-title`, `__metrics`, `__metric`, `__label`, `__value`, `__detail`, `__table-wrap`, `__table`, `__list`, `__notice`, `__details`, `__empty` |
-| `Form` template (5.1.0+) | `.hz-form__field`, `__description`, `__error`, `__submit` |
+| `Form` template (5.1.0+) | `.hz-form` (root) + `__field`, `__description`, `__error`, `__submit` |
 
 ❌ **`hz-arch` (with `__chip`, `__dot`, `__label`) does not exist.** No CSS ships for it in this stylesheet — do not reference it for architecture diagrams or anything else; build a layout with `hz-card`/`hz-rail`/plain CSS instead.
 

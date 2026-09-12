@@ -54,12 +54,16 @@ signatures, and the real error class names — don't guess a method name.
 - `ctx.storage` — `await ctx.storage.save(...)`/`.get(...)` (not `.set`); mind
   the `tenant` scope has no per-pack isolation.
 - `ctx.secrets` — `await ctx.secrets.require(...)`/`.get(...)` — both async.
-- `ctx.files`, `ctx.http`, `ctx.ssh`, `ctx.telegram`, `ctx.tts`, `ctx.db`,
-  `ctx.mcp` — each needs its own `services.*` (and, for `ssh`, `ssh_targets`)
-  declaration in `huitzo.yaml`, plus the matching permission token. When a
-  command needs a new service/permission, load the `huitzo-manifest` skill
-  (via the Skill tool) before editing `huitzo.yaml` — the policy card and
-  permission↔service backing rules are easy to get subtly wrong.
+- `ctx.files`, `ctx.http`, `ctx.ssh`, `ctx.telegram`, `ctx.tts`, `ctx.db` —
+  each needs its own `services.*` (and, for `ssh`, `ssh_targets`) declaration
+  in `huitzo.yaml`, plus the matching permission token. When a command needs
+  a new service/permission, load the `huitzo-manifest` skill (via the Skill
+  tool) before editing `huitzo.yaml` — the policy card and permission↔service
+  backing rules are easy to get subtly wrong.
+- `ctx.mcp` is backed differently — there is no `services.mcp` (the schema
+  forbids unknown `services.*` keys, so that would fail the whole manifest).
+  Declare at least one entry under `mcp_servers:` and grant the `mcp:call`
+  permission instead.
 
 ## Test expectations
 

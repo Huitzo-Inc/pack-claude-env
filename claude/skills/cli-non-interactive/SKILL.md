@@ -159,7 +159,13 @@ builds a Streamable HTTP MCP config for a Huitzo-hosted **docs** server. No
 flag prints the config + a revoke URL for you to add by hand; `--stdout`
 prints just the JSON for piping; `--write` merges the entry into your Claude
 Code MCP config (`~/.claude.json`, user scope — reachable from every project).
-`docs` is currently the only supported service.
+`docs` is currently the only supported service. `huitzo mcp` has a single
+subcommand today (`setup docs`); MCP tool discovery happens inside commands
+via `ctx.mcp` (see `huitzo-platform`). This Hub-hosted docs server is not the
+same thing as the project-local `pack-docs` MCP server: `pack-docs`
+(declared in your project's own `.mcp.json`, launched via `your-docs-mcp`)
+serves *this project's* `docs/` directory, while `huitzo mcp setup docs`
+writes a Huitzo-hosted documentation server into `~/.claude.json`.
 
 ### `huitzo project`
 
