@@ -1,8 +1,24 @@
+---
+paths:
+  - "src/**/*.py"
+  - "src/**/*.ts"
+  - "src/**/*.tsx"
+  - "tests/**/*.py"
+  - "pack/src/**/*.py"
+  - "pack/tests/**/*.py"
+  - "packs/*/src/**/*.py"
+  - "packs/*/tests/**/*.py"
+  - "dashboard/src/**/*.ts"
+  - "dashboard/src/**/*.tsx"
+  - "dashboards/*/src/**/*.ts"
+  - "dashboards/*/src/**/*.tsx"
+---
+
 # Traceability Rules
 
 ## Requirement
 
-Every source file must include a traceability header referencing the documentation it implements. The referenced docs live **inside your project** (`docs/commands/`, `docs/components/`, `docs/pages/`) — not in the Huitzo monorepo. Each command/component you write has a matching doc that defines its contract (the docs-first workflow), and the source file points back at it.
+Every source file must include a traceability header referencing the documentation it implements. The referenced docs live **inside your project** (`docs/commands/`, `docs/components/`, `docs/pages/`) — never in an external repository. Each command/component you write has a matching doc that defines its contract (the docs-first workflow), and the source file points back at it.
 
 ## Format
 
@@ -84,7 +100,7 @@ Dashboard source files use JSDoc-style traceability:
 ```bash
 # Check all files have traceability headers
 # Pack:
-huitzo validate
+huitzo pack validate --strict
 
 # Dashboard:
 huitzo dashboard validate

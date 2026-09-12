@@ -1,98 +1,42 @@
-# Pack Claude Environment — AI Development Instructions
+# pack-claude-env — instructions for AI tools working on THIS repository
 
-> **Single source of truth for AI tools working in this repository.**
-> This is a submodule of the [Huitzo monorepo](https://github.com/Huitzo-Inc/huitzo).
+This repository is the Huitzo developer environment for Claude Code. It is public. It ships two
+ways from one source tree:
 
-## What This Repository Is
+1. **Seed** — the Huitzo CLI (`huitzo pack new`, `huitzo dashboard new`, `huitzo project init`)
+   clones `main` and copies `claude/` into a project's `.claude/`, filtered by
+   `profiles/<profile>.json`, plus the root `CONSTITUTION.md`.
+2. **Plugin** — `.claude-plugin/marketplace.json` + `.claude-plugin/plugin.json` expose the same
+   `claude/skills/`, `claude/agents/` and `hooks/hooks.json` as the `huitzo` plugin.
 
-A pre-configured [Claude Code](https://docs.anthropic.com/en/docs/claude-code) environment for developing Intelligence Packs and Dashboards on the Huitzo platform. It provides SDK-aware skills, specialized agents, coding rules, and project instructions — for both Python pack commands and React dashboard micro-frontends.
+It is configuration, not an application: markdown, JSON and small shell/Python scripts only.
 
-This repository is **not** a runnable application. It is a seed environment that gets copied into new Huitzo projects by the CLI (`huitzo pack new`, `huitzo dashboard new`).
-
-## Repository Structure
+## Layout
 
 ```
-claude/
-├── CLAUDE.md           # Main AI instructions (this file's sibling)
-├── settings.json       # Claude Code settings
-├── agents/             # Specialized agent definitions
-│   ├── pack-developer.md
-│   ├── pack-reviewer.md
-│   ├── dashboard-developer.md
-│   ├── dashboard-reviewer.md
-│   ├── docs-writer.md
-│   └── spec-architect.md
-├── rules/              # Path-scoped coding rules
-│   ├── sdk-patterns.md
-│   ├── react-patterns.md
-│   ├── dashboard-design.md
-│   ├── dashboard-manifest.md
-│   ├── hub-contract.md
-│   ├── error-handling.md
-│   ├── documentation.md
-│   ├── testing.md
-│   └── traceability.md
-├── skills/             # Reusable skill definitions
-│   ├── add-command/
-│   ├── draft-spec/
-│   ├── draft-docs/
-│   ├── scaffold-dashboard/
-│   ├── test-pack/
-│   ├── test-dashboard/
-│   ├── validate-pack/
-│   ├── validate-dashboard/
-│   ├── lint-and-fix/
-│   ├── publish/
-│   ├── sandbox/
-│   ├── dashboard-dev/
-│   ├── dashboard-e2e/
-│   └── cli-non-interactive/
-profiles/               # Profile definitions (pack-only, dashboard-only, full-stack)
-scripts/                # Utility scripts
-CONSTITUTION.md         # Pack developer constitution (simplified subset of Huitzo Constitution)
+.claude-plugin/        plugin.json, marketplace.json (plugin channel only)
+hooks/hooks.json       plugin hook wiring → ${CLAUDE_PLUGIN_ROOT}/claude/hooks/*.sh
+claude/                THE seed (copied verbatim into projects)
+  CLAUDE.md            thin pointer (the CLI may overwrite it in Projects)
+  settings.json        seed hooks + permission allowlist (never mcpServers)
+  rules/               00-huitzo-core.md (always on) + path-scoped rules
+  skills/              workflow skills + reference skills + huitzo-init
+  agents/              developer / reviewer / docs / spec agents
+  hooks/               shared hook scripts + docs-mcp.sh launcher
+profiles/              pack-only, dashboard-only, full-stack (exclude lists drive the CLI)
+scripts/               validators (see CONTRIBUTING.md)
+CONSTITUTION.md        developer principles copied next to .claude/
 ```
 
-## Profiles
+## Rules for edits here
 
-Three profiles control which agents, rules, and skills are active:
-
-| Profile | Use Case | Includes |
-|---------|----------|----------|
-| **pack-only** | Python Intelligence Pack development | Pack agents + skills + Python rules |
-| **dashboard-only** | React dashboard development | Dashboard agents + skills + React rules |
-| **full-stack** | Pack + Dashboard together (default) | Everything |
-
-Profile definitions are in `profiles/`. The `claude/CLAUDE.md` is the same for all profiles — path-scoped rules ensure only relevant rules load based on the files being edited.
-
-## Docs-First Workflow
-
-This environment enforces a **docs-first** workflow. The order matters — docs are the source of truth, code implements them:
-
-1. **Spec** (`/draft-spec my-project`) — Structured requirements gathering (7 phases)
-2. **Document** (`/draft-docs analyze-text`) — Write command/component documentation
-3. **Implement** (`/add-command analyze-text` or `/scaffold-dashboard AnalyzeView`) — Code implements docs
-4. **Test** (`/test-pack` or `/test-dashboard`) — Validate documented behavior
-5. **Validate** (`/validate-pack` or `/validate-dashboard`) — Structure and quality checks
-6. **Lint** (`/lint-and-fix`) — Auto-fix code style
-
-## Quality Gates (from CONSTITUTION.md)
-
-Before publishing any pack:
-
-```bash
-source venv/bin/activate
-pytest -v                  # Own What You Ship
-ruff check .               # Simplicity
-ruff format --check .      # Simplicity
-mypy --strict src/         # Simplicity through types
-huitzo validate            # Manifest + structure check
-```
-
-All gates must pass. No exceptions.
-
-## What NOT to Do
-
-- **Don't modify `claude/CLAUDE.md` directly in this repo** — it is the seed that gets copied into projects. Changes here affect every new project. If a rule is project-specific, it belongs in the project's own `.claude/` after seeding.
-- **Don't add project-specific agents or skills here** — this is the generic seed. Project-specific additions go in the project's `.claude/` directory.
-- **Don't remove the docs-first workflow** — the spec→docs→implement→test→validate→lint order is the contract between the environment and the CLI's validation. Skipping steps produces artifacts that fail `huitzo validate`.
-- **Don't add runtime dependencies** — this environment is configuration, not code. It should not require `pip install` or `npm install` to function.
+- Read `CONTRIBUTING.md` first; run every validator listed there before a PR.
+- Only public knowledge: docs.huitzo.ai, the published `huitzo-sdk` and `@huitzo/dashboard-sdk*`
+  packages, `huitzo --help`, https://github.com/Huitzo-Inc/build-with-huitzo. No private repository
+  links, no internal process names, no company facts.
+- Every file added under `claude/` must be listed in `profiles/pack-only.json` and
+  `profiles/dashboard-only.json` (included or excluded). No symlinks anywhere.
+- Reference skills say which package version they were verified against; keep that in sync with
+  `scripts/check_api_surface.py`.
+- Wrong-example lines carry ❌; correct examples never do.
+- Never name a skill `init`; never change an SPDX identifier.

@@ -43,3 +43,19 @@ jobs:
         run: |
           claude plugin validate ./claude/skills --strict
           claude plugin validate ./claude/agents --strict
+
+  surface:
+    name: published-package and live-link accuracy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Documented API facts hold against huitzo-sdk / dashboard-sdk-react
+        run: python3 scripts/check_api_surface.py
+      - name: Every external link resolves
+        run: python3 scripts/check_links.py

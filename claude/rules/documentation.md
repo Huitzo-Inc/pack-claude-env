@@ -1,3 +1,8 @@
+---
+paths:
+  - "docs/**/*.md"
+---
+
 # Documentation Rules
 
 ## Documentation-First Principle
@@ -15,7 +20,7 @@ If you're asked to implement a command that doesn't have documentation yet, writ
 
 ## Documentation MCP Server
 
-The pack includes a `your-docs-mcp` server configured to serve the `docs/` directory. Claude Code uses it automatically via `.claude/settings.json`.
+The project can serve its own `docs/` directory to Claude Code through the `pack-docs` MCP server (`your-docs-mcp`). It is declared in the project's `.mcp.json` — run `/huitzo-init` to wire it (it installs nothing; see the printed install hint) — and appears in `/mcp` once approved.
 
 Available MCP tools:
 - `search_documentation` — Search docs by keyword
@@ -29,10 +34,13 @@ Available MCP tools:
 
 ```
 docs/
-├── README.md              # Pack overview
+├── README.md              # Project overview
+├── spec/                  # Specifications (from /draft-spec)
 ├── commands/
 │   ├── README.md          # Commands index
 │   └── {command-name}.md  # One doc per command
+├── components/            # Dashboard component docs ({Name}.md)
+├── pages/                 # Dashboard page docs ({Name}.md)
 └── guides/
     ├── README.md          # Guides index
     └── getting-started.md # Usage guide

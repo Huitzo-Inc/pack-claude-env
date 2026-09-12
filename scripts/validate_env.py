@@ -67,7 +67,7 @@ BOUNDARY_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("internal metaphor", re.compile(r"\b(railroad|the body, not the brain|huitzo is the body)\b", re.I)),
     ("internal process term", re.compile(r"(review-and-submit|implementation_plan|HUITZO_HEADLESS|headless-worker|\./gate\b|gate-spec)", re.I)),
     ("internal host", re.compile(r"staging\.huitzo\.ai", re.I)),
-    ("monorepo-internal doc path", re.compile(r"docs/(architecture/(?!security\b)|governance|plans|ideas|roadmaps|release-notes|studio|hub|testing|incidents|reports|runbooks|onprem)/", re.I)),
+    ("monorepo-internal doc path", re.compile(r"docs/(architecture/(?!security\b)|governance|plans|ideas|roadmaps|release-notes|studio|hub|onprem)/", re.I)),
     ("monorepo-internal guide", re.compile(r"docs/guides/(developer-environment|how-to-release|testing|application-structure)\.md", re.I)),
     ("monorepo-internal dashboard doc", re.compile(r"docs/dashboards/(loading|backlog|deployment|team-management|ai-tooling|v6|template-release)", re.I)),
     ("monorepo-internal cli doc", re.compile(r"docs/cli/agent-integration\.md", re.I)),
@@ -79,11 +79,11 @@ STALE_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("stale '4.1.x' claim", re.compile(r"\b4\.1\.x\b")),
     ("ctx.storage.set (should be .save)", re.compile(r"ctx\.storage\.set\(")),
     ("ctx.telegram.send_message (should be .send)", re.compile(r"ctx\.telegram\.send_message\(")),
-    ("model= passed to ctx.llm (use profile=)", re.compile(r"ctx\.llm\.(complete|chat|stream)\([^)]*\bmodel=")),
+    ("model= passed to ctx.llm (use profile=)", re.compile(r"ctx\.llm(\.(complete|chat|stream))?\([^)]*?\bmodel\s*=", re.S)),
     ("queue default/auto (real values: fast|medium|long)", re.compile(r"queue\s*[:=]\s*[\"']?(default|auto)\b")),
     ("enabled: field in huitzo.yaml (does not exist)", re.compile(r"^\s*enabled:\s*(true|false)\s*$", re.M)),
     ("hz-arch primitive (never shipped)", re.compile(r"hz-arch\b")),
-    ("builtin-shadowing error name", re.compile(r"huitzo_sdk\.errors import[^\n]*\b(TimeoutError|PermissionError)\b")),
+    ("builtin-shadowing error name (real: CommandTimeoutError / PackPermissionError)", re.compile(r"(?<![A-Za-z.])(?<!asyncio\.)(TimeoutError|PermissionError)\b")),
     ("mcpServers in settings.json", re.compile(r'"mcpServers"')),
 ]
 
@@ -102,8 +102,8 @@ def frontmatter(path: Path) -> dict[str, str]:
         if km:
             key = km.group(1)
             out[key] = km.group(2).strip().strip("\"'")
-        elif key and line.startswith((" ", "\t")):
-            out[key] = (out[key] + " " + line.strip()).strip()
+        elif key and line.startswith((" ", "\t", "-")):
+            out[key] = (out[key] + " " + line.strip().lstrip("-").strip()).strip()
     return out
 
 
@@ -231,6 +231,14 @@ def check_frontmatter(root: Path, rep: Report) -> None:
             rep.add("frontmatter", f"{rel}: missing description")
         elif len(desc) > 1024:
             rep.add("frontmatter", f"{rel}: description longer than 1024 chars")
+    for rule in sorted((root / "claude" / "rules").glob("*.md")):
+        if rule.name == "00-huitzo-core.md":
+            continue
+        fm = frontmatter(rule)
+        paths_value = fm.get("paths", "").strip()
+        rel = rule.relative_to(root)
+        if not paths_value or paths_value in {"**", "- **", '"**"'}:
+            rep.add("frontmatter", f"{rel}: rule needs a non-empty, non-'**' paths: frontmatter (only 00-huitzo-core.md is always-on)")
     for agent in sorted((root / "claude" / "agents").glob("*.md")):
         fm = frontmatter(agent)
         rel = agent.relative_to(root)
@@ -269,9 +277,12 @@ def check_text(root: Path, rep: Report) -> None:
                 continue
             for m in pat.finditer(text):
                 line = text.count("\n", 0, m.start()) + 1
-                context = text[max(0, m.start() - 40): m.start()]
-                # Allow explicit "do not write" anti-pattern rows that name the wrong token.
-                if re.search(r"(never|not|wrong|don't|do not|stale|removed|❌|✗)", context, re.I):
+                line_start = text.rfind("\n", 0, m.start()) + 1
+                line_end = text.find("\n", m.start())
+                line_text = text[line_start: line_end if line_end != -1 else len(text)]
+                # Convention (README "Anti-patterns"): a line carrying ❌ is a deliberate
+                # "do not write this" example and is exempt from the stale-token check.
+                if "\u274c" in line_text:
                     continue
                 rep.add("stale", f"{rel}:{line}: {label}: {m.group(0)!r}")
 

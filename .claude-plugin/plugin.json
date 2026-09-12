@@ -10,7 +10,15 @@
   "homepage": "https://docs.huitzo.ai/docs/",
   "repository": "https://github.com/Huitzo-Inc/pack-claude-env",
   "license": "LicenseRef-Huitzo-Source-Available",
-  "keywords": ["huitzo", "intelligence-packs", "dashboards", "sdk", "mcp", "python", "react"],
+  "keywords": [
+    "huitzo",
+    "intelligence-packs",
+    "dashboards",
+    "sdk",
+    "mcp",
+    "python",
+    "react"
+  ],
   "skills": "./claude/skills/",
   "agents": [
     "./claude/agents/dashboard-developer.md",
@@ -20,6 +28,5 @@
     "./claude/agents/pack-reviewer.md",
     "./claude/agents/spec-architect.md"
   ],
-  "hooks": "./claude/hooks/hooks.json",
-  "mcpServers": "./claude/mcp.json"
+  "hooks": "./hooks/hooks.json"
 }

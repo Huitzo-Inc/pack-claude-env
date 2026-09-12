@@ -12,7 +12,6 @@ Nothing in any Huitzo repository, including any source-available or
 open-source license that may cover its code, grants any right to use Huitzo
 trademarks.
 
-> Draft pending counsel review; trademark registration status is tracked
-> separately by Huitzo Inc. legal. Policy: `docs/governance/ip-protection.md`.
+> Trademark registration status is tracked separately by Huitzo Inc.
 
 Contact: legal@huitzo.ai
