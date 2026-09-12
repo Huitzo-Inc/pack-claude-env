@@ -273,6 +273,8 @@ def check_text(root: Path, rep: Report) -> None:
         for label, pat in STALE_PATTERNS:
             if label == "mcpServers in settings.json" and not rel.endswith("settings.json"):
                 continue
+            if label.startswith("builtin-shadowing") and "dashboard" in rel:
+                continue  # the dashboard SDK ships its own TimeoutError class (TypeScript)
             if rel == "CHANGELOG.md":
                 continue
             for m in pat.finditer(text):

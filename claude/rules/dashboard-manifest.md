@@ -1,75 +1,98 @@
 ---
 paths:
   - "huitzo-dashboard.yaml"
+  - "dashboard/huitzo-dashboard.yaml"
+  - "dashboards/*/huitzo-dashboard.yaml"
 ---
 
 # Dashboard Manifest Rules
 
-The `huitzo-dashboard.yaml` manifest defines your dashboard's identity, dependencies, and build configuration.
+`huitzo-dashboard.yaml` defines your dashboard's identity, pack dependencies,
+and build configuration. It lives at the project root, alongside `package.json`.
 
-## Required Fields
+## Minimum shape
 
 ```yaml
 dashboard:
-  name: my-dashboard           # kebab-case, 3-50 characters
-  namespace: mynamespace       # lowercase, no hyphens, 2-20 characters
-  version: 1.0.0               # Valid semver
-  description: "..."           # 10-200 characters
-  visibility: private          # public | unlisted | organization | private
-  author: Your Name
-  min_sdk_version: "1.0.0"     # Optional: minimum @huitzo/dashboard-sdk-react version (semver)
+  name: "my-dashboard"           # kebab-case, 3-50 characters
+  namespace: "mydash"            # short, lowercase
+  version: "1.0.0"               # valid semver
+  description: "Dashboard for managing widgets"   # 10-200 characters
+  visibility: "organization"     # public | unlisted | organization | private (default: organization)
 
-pack_dependencies:             # Packs this dashboard consumes
-  - scope: "@my-scope"
-    name: "my-pack"
-    version: ">=1.0.0"
-    required: true             # true = dashboard won't install without this pack
+pack_dependencies: []            # Intelligence Packs this dashboard consumes
 
 build:
-  framework: react
+  framework: "react"             # default: react
   node_version: ">=20.0.0"
-  build_command: npm run build
-  output_directory: dist
-  entry_point: main.js         # Must be main.js (convention)
+  build_command: "npm run build"
+  output_directory: "dist"
+  entry_point: "main.js"         # Vite library-mode output: dist/main.js
 ```
 
-## Validation Rules
+## `dashboard` section
 
-### Name
-- Must be kebab-case (`[a-z0-9-]+`)
-- 3 to 50 characters
-- Must start with a letter
+| Field | Required | Default | Notes |
+|---|---|---|---|
+| `name` | Yes | — | Unique identifier, kebab-case |
+| `namespace` | Yes | — | Short namespace, lowercase |
+| `version` | Yes | — | Semantic version (`MAJOR.MINOR.PATCH`) |
+| `description` | Yes | — | 10-200 characters, meaningful (not just the name repeated) |
+| `visibility` | No | `organization` | `public` \| `unlisted` \| `organization` \| `private` |
+| `author` | No | — | Author or company name |
+| `license` | No | `proprietary` | License identifier |
+| `min_sdk_version` | No | `1.0.0` | Must be valid semver — declares the minimum `@huitzo/dashboard-sdk-react` version this dashboard needs |
 
-### Namespace
-- Lowercase letters and numbers only (no hyphens)
-- 2 to 20 characters
-- Must start with a letter
+Visibility levels: `public` (searchable, no grant needed) · `unlisted` (not
+searchable, needs the link/ID) · `organization` (org members, needs a
+`DashboardAccessGrant`) · `private` (owner organization only).
 
-### Version
-- Must be valid semver (e.g., `1.0.0`, `0.1.0-beta.1`)
+## `pack_dependencies` section
 
-### Min SDK Version
-- Optional. When set, must be valid semver — `huitzo dashboard validate` rejects a non-semver `min_sdk_version`.
-- Declares the minimum `@huitzo/dashboard-sdk-react` version your dashboard needs. Hub compares its own SDK version against this before loading and refuses to load a dashboard that requires a newer SDK than Hub provides.
-- Defaults to `1.0.0` when omitted.
+```yaml
+pack_dependencies:
+  - scope: "@acme"
+    name: "claims-processor"
+    version: ">=2.0.0 <3.0.0"
+    required: true
+  - scope: "@huitzo"
+    name: "analytics"
+    version: "*"
+    required: false
+```
 
-### Description
-- 10 to 200 characters
-- Must be meaningful (not just the name repeated)
+| Field | Required | Default | Notes |
+|---|---|---|---|
+| `scope` | Yes | — | Pack scope, e.g. `@acme` |
+| `name` | Yes | — | Pack name, kebab-case |
+| `version` | Yes | — | Semver range, or `*` for any |
+| `required` | No | `true` | `false` = dashboard installs without it; features degrade gracefully |
 
-### Visibility
-- Must be one of: `public`, `unlisted`, `organization`, `private`
+For an optional dependency, guard the feature at runtime rather than assuming
+the pack is present:
 
-### Pack Dependencies
-- Every pack your dashboard imports commands from must be listed
-- `scope` must start with `@`
-- `version` must be a valid semver range
-- Set `required: true` for packs the dashboard cannot function without
+```typescript
+const { isPackInstalled } = useHuitzo();
+if (isPackInstalled('@huitzo/analytics')) {
+  // render the analytics-dependent feature
+}
+```
 
-### Build
-- `framework` must be `react` (for now)
-- `entry_point` must be `main.js`
-- `output_directory` must be `dist`
+## `build` section
+
+| Field | Required | Default | Notes |
+|---|---|---|---|
+| `framework` | No | `react` | `react` \| `vue` \| `svelte` \| `angular` \| `vanilla` — only `react` and `vanilla` are currently supported |
+| `node_version` | No | `>=18.0.0` | Required Node.js version |
+| `build_command` | No | `npm run build` | Command that produces the output directory |
+| `output_directory` | No | `dist` | Build output directory |
+| `entry_point` | No | `main.js` | ESM entry point — the Vite library-mode output filename, must match `vite.config.ts`'s `build.lib.fileName` |
+| `env_prefix` | No | `VITE_` | Environment variable prefix exposed to the build |
+
+The scaffolded manifest ships the minimum required set (`dashboard` +
+`pack_dependencies: []` + `build`); `pricing`, `deployment`, `metadata`, and
+`listing` sections are optional additions for marketplace publishing — see
+the manifest reference doc, not this rule, for those.
 
 ## Validation
 
@@ -79,4 +102,9 @@ Run before every commit:
 huitzo dashboard validate
 ```
 
-This checks the manifest, verifies the bundle exports `mount`/`unmount`, and validates bundle size (< 50 MB).
+This checks the manifest fields above, then (when `dist/` exists) verifies
+the bundle: entry point present, valid ESM, exports `mount` and `unmount`,
+and under the platform's size limit.
+
+`pricing`, `deployment`, `metadata`, and `listing` are additional optional
+sections for marketplace publishing — out of scope for this checklist.
