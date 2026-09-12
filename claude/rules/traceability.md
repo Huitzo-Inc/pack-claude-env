@@ -106,9 +106,9 @@ file is written or left uncommitted without one. Run this yourself before
 either CLI command:
 
 ```bash
-# Pack — files missing the header:
-grep -L "Implements:" src/**/*.py
+# Pack — files missing the header (recursive):
+grep -rL "Implements:" --include='*.py' src/ tests/
 
-# Dashboard — files missing the header:
-grep -L "@implements" src/**/*.tsx src/**/*.ts
+# Dashboard — files missing the header (recursive):
+grep -rL "@implements" --include='*.ts' --include='*.tsx' src/
 ```

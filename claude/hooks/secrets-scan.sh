@@ -33,7 +33,7 @@ CONTENT="$(hz_get_write_content "$INPUT")"
 # credential is allowed to appear on purpose (a documented placeholder or
 # the docs that talk about secrets), never a place secrets actually live.
 case "$FILE_PATH" in
-  *.env.example | *.env.sample | *secrets-scan.sh | */docs/*secret* | docs/*secret*)
+  *.env.example | *.env.sample | *secrets-scan.sh | */docs/*secret*.md | docs/*secret*.md)
     exit 0
     ;;
 esac
@@ -83,7 +83,10 @@ fi
 
 if [ -n "$MATCH_LABEL" ]; then
   {
-    printf 'secrets-scan: blocked write to %s\n' "${FILE_PATH:-<unknown file>}"
+    case "$SCAN_MODE" in
+      warn | WARN) printf 'secrets-scan: WARNING (not blocked, HUITZO_SECRETS_SCAN=warn): possible secret in %s\n' "${FILE_PATH:-<unknown file>}" ;;
+      *) printf 'secrets-scan: blocked write to %s\n' "${FILE_PATH:-<unknown file>}" ;;
+    esac
     printf '  matched pattern: %s\n' "$MATCH_LABEL"
     printf '  do not write secrets into source. Instead:\n'
     printf '    - Python:  await ctx.secrets.require("SOME_KEY")\n'

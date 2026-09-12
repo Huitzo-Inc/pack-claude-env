@@ -68,8 +68,10 @@ missing), **skip-exists** (destination already present — never touched),
   say why: the plugin already runs them itself (via `hooks/hooks.json` →
   `${CLAUDE_PLUGIN_ROOT}/claude/hooks/*.sh`) — copying them into `.claude/` would
   just leave an inert, unused second copy. The one exception, in **every** channel
-  including plugin: `docs-mcp.sh` and the `_lib.sh` it sources — always copy both
-  into `.claude/hooks/` (create the directory if missing) and `chmod +x` them. The
+  including plugin: `docs-mcp.sh` and the `_lib.sh` it sources — copy both into
+  `.claude/hooks/` when they are missing (create the directory if needed) and
+  `chmod +x` them; if present they are left alone like every other file (delete
+  them to receive a newer version). The
   reason is the `.mcp.json` entry below: its `command` is a plain path Claude Code
   spawns directly, and a project-scoped `.mcp.json` cannot reference
   `${CLAUDE_PLUGIN_ROOT}` (there is no "current plugin" for it to resolve against),

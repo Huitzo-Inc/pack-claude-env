@@ -53,10 +53,10 @@ Validate the Intelligence Pack's structure and quality.
    manifest/entry-point/permission checks. Traceability headers are enforced
    only by this environment's `post-edit`/`pre-stop` hooks, non-blocking:
 
-   f. **Traceability headers.** Every `.py` file under `src/` and `tests/` has
+   a. **Traceability headers.** Every `.py` file under `src/` and `tests/` has
       a module docstring with an `Implements:` block pointing at a
       `docs/commands/*.md` file that exists. Quick check:
-      `grep -L "Implements:" src/**/*.py` (empty output = every file has one).
+      `grep -rL "Implements:" --include='*.py' src/ tests/` (empty output = every file has one).
 
 4. **Report as a checklist:**
 

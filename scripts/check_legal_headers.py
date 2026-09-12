@@ -6,8 +6,7 @@
 Module: scripts.check_legal_headers
 Description: Checks (and mechanically fixes) the Huitzo legal header on every
     first-party source file, plus repo-level license/metadata invariants.
-    Stdlib only, so it runs identically in the parent repo, in every submodule
-    checkout (vendored copy), in CI, and in the nightly IP-compliance sweep.
+    Stdlib only, so it runs identically locally and in CI.
 
 Implements:
     - Huitzo legal-header policy (copyright + SPDX line on every first-party

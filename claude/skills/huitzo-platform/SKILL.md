@@ -271,8 +271,9 @@ commands:
   not an importable SDK type — that page also has the exact `ctx.mcp.call
   (server, tool, arguments, timeout=None)` signature and the
   `MCPConnectionError` / `MCPToolError` / `MCPTimeoutError` /
-  `MCPSchemaError` hierarchy (not `huitzo-sdk`, which deliberately declines
-  to state one).
+  `MCPSchemaError` hierarchy — the same five `MCP*` classes the `huitzo-sdk`
+  skill lists with their constructor arguments (they are importable from
+  `huitzo_sdk.errors`; only the client object itself is untyped).
 
 ## Secrets model
 

@@ -98,9 +98,11 @@ Session context at start; a blocking secrets scan on writes (API keys, tokens, p
 non-blocking nudges after edits (missing traceability header, hex colours in dashboards,
 `model=` on `ctx.llm`, `dangerouslySetInnerHTML`, ruff findings); a summary of unheadered files when
 you stop. Outside a Huitzo project every hook exits immediately. The secrets scan skips JWT-shaped
-and generic `sk-…` examples in prose files (`.md`, `.rst`, `.txt`) and honours
+and generic `sk-…` examples in prose files (`.md`, `.mdx`, `.rst`, `.txt`) and honours
 `HUITZO_SECRETS_SCAN=warn` (report, never block) or `=off`. The seeded permission allowlist in
-`.claude/settings.json` only applies once you trust the workspace in Claude Code.
+`.claude/settings.json` only applies once you trust the workspace in Claude Code; it covers read-only
+inspection and the quality-gate commands — note that `Bash(pytest*)` runs the project's own test code,
+so remove it if you open checkouts you do not trust.
 
 ### Project docs MCP server
 
@@ -139,10 +141,11 @@ python3 scripts/check_links.py           # every external link resolves (network
 python3 scripts/simulate_seed.py         # what each profile seeds into a project
 bash scripts/test_hooks.sh               # hook behaviour against synthetic Claude Code events
 claude plugin validate . --strict        # marketplace manifest (+ nested plugin manifest)
+claude plugin validate ./.claude-plugin/plugin.json --strict
 claude plugin validate ./claude --strict # skills and agents frontmatter
 ```
 
-CI runs all of these on every pull request. See `CONTRIBUTING.md`.
+CI runs the same checks on every pull request. See `CONTRIBUTING.md`.
 
 ## Updating an existing project
 
