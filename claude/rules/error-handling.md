@@ -1,147 +1,113 @@
-# Error Handling Rules
+---
+paths:
+  - "src/**/*.py"
+  - "pack/src/**/*.py"
+  - "packs/*/src/**/*.py"
+---
 
-## Exception Hierarchy
+# Error Handling
 
-All SDK exceptions inherit from `HuitzoError`:
+Full hierarchy with constructor kwargs: the `huitzo-sdk` skill. This rule is
+the condensed, always-loaded version.
+
+## Hierarchy (real class names — never the Python builtins)
 
 ```
-HuitzoError (base)
-├── CommandError          — General command failure
-├── ValidationError       — Input validation failed
-├── TimeoutError          — Command exceeded timeout
-├── StorageError          — Storage operation failed
-├── SecretsError          — User secret missing or inaccessible
-├── ExternalAPIError      — User-configured external API failed
-├── IntegrationError      — Platform service failed (base)
-│   ├── LLMError          — LLM provider error
-│   ├── EmailError        — Email sending error
-│   └── HTTPError         — HTTP request error
-├── HTTPSecurityError     — Request to disallowed domain
-├── PackExecutionError    — Cross-pack call failed
-├── PermissionError       — Insufficient permissions
-├── ConfigurationError    — Invalid configuration
-└── RateLimitError        — Rate limit exceeded
+HuitzoError
+├── CommandError
+│   ├── CircularCommandError
+│   ├── MaxCallDepthError
+│   └── CommandNotFoundError
+├── PipelineError
+├── ValidationError
+├── CommandTimeoutError        # ❌ not TimeoutError — that's a Python builtin
+├── StorageError
+├── SecretsError
+├── ExternalAPIError
+├── IntegrationError
+│   ├── LLMError
+│   ├── CronError
+│   ├── EmailError
+│   ├── HTTPError
+│   ├── DatabaseError
+│   ├── ExtensionNotAvailable
+│   └── MCPError (+ MCPConnectionError, MCPToolError, MCPTimeoutError, MCPSchemaError)
+├── HTTPSecurityError
+├── SSHError
+├── IntegrationLifecycleError
+├── PackExecutionError
+├── PackPermissionError        # ❌ not PermissionError — that's a Python builtin
+├── ConfigurationError
+└── RateLimitError
 ```
 
-## When to Use Each Exception
+Import from `huitzo_sdk.errors` (or top-level `huitzo_sdk`) — never define a
+parallel exception hierarchy.
 
-### ValidationError — User gave bad input
+## When to raise what
 
-```python
-from huitzo_sdk.errors import ValidationError
+| Situation | Exception |
+|---|---|
+| Business-rule validation Pydantic didn't catch | `ValidationError(field=..., value=..., message=...)` |
+| A user-configured secret is missing | `SecretsError(secret_name=..., message=...)` (or just `await ctx.secrets.require(...)`, which raises it for you) |
+| An API the *user* configured failed | `ExternalAPIError(service=..., message=...)` |
+| The command can't complete for a domain reason | `CommandError(message, exit_code=1)` |
+| A platform service (`ctx.llm`, `ctx.http`, ...) is unwired or fails | let `IntegrationError`/its subclass propagate — don't catch and re-wrap it |
 
-if len(args.text) > 10000:
-    raise ValidationError(
-        field="text",
-        value=args.text[:50] + "...",
-        message="Text exceeds maximum length of 10,000 characters",
-    )
-```
-
-Use when: Pydantic doesn't catch the validation (business logic rules, cross-field validation).
-
-### CommandError — General failure
-
-```python
-from huitzo_sdk.errors import CommandError
-
-if not results:
-    raise CommandError("Analysis produced no results", exit_code=1)
-```
-
-Use when: The command cannot complete for a reason that doesn't fit other categories.
-
-### SecretsError — Missing required secret
-
-```python
-from huitzo_sdk.errors import SecretsError
-
-api_key = await ctx.secrets.get("OPENAI_API_KEY")
-if not api_key:
-    raise SecretsError(
-        secret_name="OPENAI_API_KEY",
-        message="OpenAI API key is required. Add it in your Huitzo dashboard.",
-    )
-```
-
-Use when: A user-configured secret is missing or invalid.
-
-### ExternalAPIError — User's external API failed
+## `ExternalAPIError` pattern
 
 ```python
 from huitzo_sdk.errors import ExternalAPIError
 
 try:
-    response = await ctx.http.get(f"https://api.example.com/data")
-except Exception as e:
+    result = await external_client.call(api_key)
+except AuthError as exc:
     raise ExternalAPIError(
-        service="example-api",
-        message=f"Failed to fetch data: {e}",
-    )
+        service="crm-provider",
+        message="Invalid API key. Update it on the Integrations page.",
+    ) from exc
 ```
 
-Use when: An API the user configured (not Huitzo platform services) fails.
-
-### StorageError — Storage operation failed
-
-```python
-from huitzo_sdk.errors import StorageError
-
-try:
-    await ctx.storage.set("results", data)
-except Exception as e:
-    raise StorageError(
-        operation="set",
-        key="results",
-        message=f"Failed to store results: {e}",
-    )
-```
-
-## Retryable vs Non-Retryable
-
-| Exception | Retryable | Why |
-|-----------|-----------|-----|
-| `ValidationError` | No | User input won't change on retry |
-| `CommandError` | No | Logic error, not transient |
-| `TimeoutError` | **Yes** | May succeed with more time |
-| `StorageError` | No | Usually indicates a real problem |
-| `SecretsError` | No | Secret won't appear on retry |
-| `ExternalAPIError` | No | User must fix their API config |
-| `IntegrationError` | **Yes** | Platform services may recover |
-| `LLMError` | **Yes** | LLM providers have transient failures |
-| `RateLimitError` | **Yes** | Will succeed after cooldown |
-
-The runtime uses the `retryable` flag on each exception to decide whether to retry.
+Write the message for the *user* who configured the integration — name what
+to fix and where, not the raw exception text.
 
 ## Rules
 
-1. **Import from `huitzo_sdk.errors`** — never define your own exception hierarchy
-2. **Never catch `Exception` broadly** — let the runtime handle unexpected errors
-3. **Include actionable messages** — tell the user what to do, not just what went wrong
-4. **Don't log and raise** — the runtime handles logging. Just raise.
-5. **Use the most specific exception** — `SecretsError` over `CommandError` when a secret is missing
+1. **Never catch broadly.** A bare `except:` or an overly broad `except
+   Exception` clause around command logic hides the real failure from the
+   runtime's error reporting and retry logic.
 
-## Anti-Patterns
+   ```python
+   try:
+       result = await do_work()
+   except Exception:                 # ❌ swallows everything, hides the real failure
+       return {"error": "something went wrong"}
 
-```python
-# BAD: Catching everything
-try:
-    result = await do_work()
-except Exception:
-    return {"error": "something went wrong"}
+   result = await do_work()          # ✅ let unexpected errors propagate
+   ```
 
-# GOOD: Let it propagate
-result = await do_work()  # Runtime catches unexpected errors
+2. **Never log secret values.** Not in a message, not in a kwarg, not in an
+   error's `details`.
 
-# BAD: Generic error
-raise CommandError("Error")
+   ```python
+   ctx.log.error(f"auth failed with key {api_key}")   # ❌ — never interpolate a secret
+   ctx.log.error("auth failed", key_name="USER_API_KEY")   # ✅ — name it, don't show it
+   ```
 
-# GOOD: Actionable message
-raise CommandError("Analysis failed: input text contains no extractable entities")
+   `ValidationError.value` and `HTTPError.url`/`response_body` are
+   auto-redacted by the SDK when the field name looks secret-shaped — but
+   that's a backstop, not a license to pass secrets into error payloads.
 
-# BAD: Custom exceptions
-class MyPackError(Exception): ...
+3. **Use the most specific exception.** `SecretsError` over `CommandError`
+   when a secret is missing; `ExternalAPIError` over a bare `Exception`
+   re-raise when the *user's* external service failed.
 
-# GOOD: Use SDK exceptions
-raise CommandError("...")
-```
+4. **Actionable messages.** Say what to do, not just what broke:
+
+   ```python
+   raise CommandError("Error")   # ❌ tells the user nothing
+   raise CommandError("Analysis failed: input text contains no extractable entities")   # ✅
+   ```
+
+5. **Don't log and raise.** The runtime logs raised exceptions. Raise once;
+   don't also call `ctx.log.error(...)` right before raising the same thing.

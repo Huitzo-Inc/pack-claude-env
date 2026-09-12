@@ -1,188 +1,141 @@
 ---
 paths:
   - "src/**/*.py"
-  - "tests/**/*.py"
+  - "pack/src/**/*.py"
+  - "packs/*/src/**/*.py"
 ---
 
 # SDK Patterns
 
-## Imports
+Full reference (exact signatures, every service, testing, anti-patterns): the
+`huitzo-sdk` skill. This rule is the always-loaded, condensed version for
+writing command code — it must never contradict that skill.
 
-Always import from the top-level `huitzo_sdk` namespace:
+## Imports
 
 ```python
 from huitzo_sdk import command, Context
-from huitzo_sdk.errors import ValidationError, CommandError
+from huitzo_sdk.errors import ValidationError, CommandError, SecretsError, ExternalAPIError
 ```
 
+Import only from the top-level `huitzo_sdk` namespace (and `huitzo_sdk.errors`).
 Never import from internal modules like `huitzo_sdk.command` or `huitzo_sdk.context`.
 
-## The @command Decorator
-
-```python
-@command("verb-noun", namespace="pack-name", timeout=60)
-async def verb_noun(args: ArgsModel, ctx: Context) -> dict:
-    """Docstring becomes help text."""
-    return {"key": "value"}
-```
-
-### Parameters
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `name` | `str` | required | Command name in `verb-noun` kebab-case |
-| `namespace` | `str` | required | Must match pack name in `huitzo.yaml` |
-| `version` | `str` | `"1.0.0"` | Semantic version of this command |
-| `timeout` | `int` | `60` | Max execution time in seconds |
-| `retries` | `int` | `3` | Number of retry attempts on failure |
-| `retry_backoff` | `float` | `1.0` | Backoff multiplier between retries |
-| `retry_max_wait` | `int` | `60` | Maximum wait between retries in seconds |
-| `queue` | `str` | `"default"` | Worker queue for execution |
-| `output_format` | `str` | `"auto"` | Output format hint |
-| `description` | `str\|None` | `None` | Override docstring description |
-
-### Function Signature Rules
-
-1. **Always async** — commands are `async def`
-2. **First parameter**: Pydantic `BaseModel` subclass for validated args
-3. **Second parameter**: `Context` — injected by runtime
-4. **Return type**: `dict` — serialized as JSON
-
-## Pydantic Args Models
-
-Define a `BaseModel` subclass for each command's arguments:
+## Command shape
 
 ```python
 from pydantic import BaseModel, Field
+from huitzo_sdk import Context, command
 
 class AnalyzeArgs(BaseModel):
-    """Arguments for the analyze command."""
+    """Arguments for the analyze-text command."""
     text: str = Field(..., description="Text to analyze")
     language: str = Field(default="en", description="Language code")
-    max_tokens: int = Field(default=1000, ge=1, le=10000)
+
+@command("analyze-text", namespace="my-pack", timeout=60, queue="medium")
+async def analyze_text(args: AnalyzeArgs, ctx: Context) -> dict:
+    """Docstring becomes marketplace help text."""
+    return {"result": "value"}
 ```
 
-- Use `Field(...)` for required args (no default)
-- Use `Field(default=...)` for optional args
-- Add `description` to every field — it appears in marketplace docs
-- Use Pydantic validators (`ge`, `le`, `pattern`, etc.) for input constraints
+- `name`: kebab-case `verb-noun` (e.g. `analyze-text`, `send-report`).
+- `namespace`: must match the pack's `namespace` in `huitzo.yaml`.
+- First parameter: a `pydantic.BaseModel` subclass (validated from a `dict`
+  automatically) — or a plain `dict` if the command takes no structured args.
+- Second parameter: `Context`, injected by the runtime.
+- `queue`: `"fast" | "medium" | "long"` only — never `"default"` or `"auto"`.
+  Default is `"medium"`. Pick `"long"` for anything that can run past ~15 minutes.
+- Both `async def` and plain sync functions are supported; prefer `async def`
+  for I/O-bound work; use a plain sync function only when the work is CPU-bound.
+- Return `dict`, a Pydantic model, `str`, `int`, or `None` — pick one shape
+  per command and keep it consistent across versions.
 
-## Context Services
-
-The `ctx` object provides platform services injected at runtime:
+## Service one-liners
 
 ```python
-# LLM — call language models
-response = await ctx.llm.chat(
-    model="claude-sonnet-4-6",
-    messages=[{"role": "user", "content": "Hello"}],
-)
-
-# HTTP — make requests (domain must be declared in manifest)
-data = await ctx.http.get("https://api.example.com/data")
-
-# Email — send emails
+response = await ctx.llm.complete(prompt, profile="default")          # never model=
+data = await ctx.http.get("https://api.example.com/data")             # domain must be in huitzo.yaml
 await ctx.email.send(to="user@example.com", subject="Report", body=body)
-
-# Telegram — send messages
-await ctx.telegram.send_message(chat_id=123, text="Alert!")
-
-# Files — file storage (no upload() — use write())
+await ctx.telegram.send(chat_id="123", message="Alert!")
 await ctx.files.write("reports/output.json", json.dumps(report))
-await ctx.files.write("images/photo.png", image_bytes, binary=True)
 report = await ctx.files.read_json("reports/output.json")
-raw = await ctx.files.read("images/photo.png")  # bytes
-files = await ctx.files.list(prefix="reports/")
-# list() returns a list of dicts, e.g. [{"path": "reports/output.json"}, ...]
-# — the #1 mistake is treating entries as strings; always use entry["path"]
-if await ctx.files.exists("reports/output.json"):
-    url = await ctx.files.get_url("reports/output.json", expires=3600)
-
-# Storage — durable key/value state (scoped per user or per tenant)
-data = await ctx.storage.get("key", default={})
-
-# Secrets — user-configured secrets (API keys, etc.)
-api_key = ctx.secrets.require("USER_API_KEY")
-
-# SSH — run commands on a user-configured remote host
-result = await ctx.ssh.run("uptime")
-
-# MCP — call tools on a connected Model Context Protocol server
-tool_result = await ctx.mcp.call_tool("server-name", "tool-name", {"arg": "value"})
+result = await ctx.ssh.run("gpu-cluster", "uptime")                     # static commands only
+rows = await ctx.db.query("analytics-db", "SELECT * FROM t WHERE id = %s", record_id)
+api_key = await ctx.secrets.require("USER_API_KEY")                    # always await
+ctx.log.info("processing started", record_id=record_id)                # sync, kwargs scrubbed
 ```
 
-**In tests, these are not available.** Mock them (see testing rules).
+Every service used here needs a matching `permissions:` token and a
+`services:` declaration in `huitzo.yaml` — see the `huitzo-manifest` skill.
 
-## Storage Access
+## Storage scopes
 
-`ctx.storage` is durable key/value storage. Always provide a default and choose
-the right scope:
+`ctx.storage` always needs a default and an explicit scope choice:
 
 ```python
-# Always use defaults
 data = await ctx.storage.get("key", default={})
-
-# Use the appropriate scope: "user" (default) is per-user; "tenant" is shared
-await ctx.storage.save("shared", data, scope="tenant")
+await ctx.storage.save("key", data, scope="pack")   # "user" (default) | "pack" | "tenant"
 ```
 
-## User Secrets
+- `"user"` — per-user, per-pack (default, safest).
+- `"pack"` — shared across users in the tenant, still pack-isolated.
+- `"tenant"` — **no pack component**; every pack in the tenant shares this
+  key space. Use only for deliberate cross-pack sharing with a unique key
+  prefix; never for a generic key like `"config"`.
 
-`ctx.secrets` reads secrets the user configured for your pack. Use `require()`
-when the secret is mandatory and `get()` when it is optional. Never log secret
-values.
+Keys must match `^[a-zA-Z0-9_\-./]{1,256}$` — no `:`.
+
+## HTTP allowlist
+
+`ctx.http` only reaches domains declared in `huitzo.yaml`'s
+`services.http.allowed_domains` (plus `*.suffix` wildcards). HTTPS is
+required. Don't try to work around a blocked domain — add it to the manifest
+instead of routing through a proxy or IP literal.
+
+## Secrets
 
 ```python
 from huitzo_sdk.errors import SecretsError, ExternalAPIError
 
-# Required — raises SecretsError if missing
-api_key = ctx.secrets.require("USER_API_KEY")
-
-# Optional — returns None if missing
-premium_key = ctx.secrets.get("PREMIUM_KEY")
-
-# Surface external-API failures with an actionable, user-facing message
-try:
-    result = await external_api.call(api_key)
-except AuthError:
-    raise ExternalAPIError(
-        service="external-service",
-        message="Invalid API key. Update it in Settings → Pack Secrets.",
-    )
+api_key = await ctx.secrets.require("USER_API_KEY")   # raises SecretsError if missing
+premium_key = await ctx.secrets.get("PREMIUM_KEY")     # returns None if missing
 ```
 
-## Return Values
+`require`/`get`/`exists` are **all async** — always `await` them. Never log a
+secret value, including in an error message or an `f-string` passed to
+`ctx.log`.
 
-Commands return a `dict` that gets serialized as JSON:
+## Logging
+
+Use `ctx.log.debug/info/warning/error(message, **kwargs)` — never `print()`.
+Pass variable data as keyword fields (scrubbed automatically for
+secret-shaped names), not interpolated into `message` (never scrubbed):
 
 ```python
-# Good — structured, predictable
-return {"analysis": result, "confidence": 0.95, "tokens_used": 150}
-
-# Bad — unstructured
-return {"output": "some string that could be anything"}
+ctx.log.info("fetched record", record_id=record_id, source="crm")   # good
 ```
 
-- Use consistent key names across commands
-- Include metadata when useful (tokens used, processing time, confidence)
-- Keep response payloads reasonably sized
+## No model names
 
-All commands use the `@command` decorator — see the [The @command Decorator](#the-command-decorator) section above.
+Never write a model name (`"gpt-4"`, `"claude-sonnet-4-6"`, etc.) anywhere in
+pack code. Always pass `profile=` to `ctx.llm.complete`/`.chat`/`.stream` and
+declare the profile in `huitzo.yaml`'s `services.llm`. The backend resolves
+`profile` to a concrete model — that resolution is not the pack's concern.
 
-## Command Registration
+## Traceability header
 
-`huitzo.yaml` is the **single source of truth** for command registration. Every command must include an `entry_point` field:
+Every command file needs a header pointing at this project's own docs, not
+the SDK's:
 
-```yaml
-commands:
-  - name: analyze-text
-    description: Analyze text content
-    entry_point: "my_pack.commands.analyze_text:analyze_text"
-    enabled: true
+```python
+"""
+Module: analyze_text
+Description: Analyzes input text and returns structured findings.
+
+Implements:
+    - docs/commands/analyze-text.md#analyze-text
+"""
 ```
 
-The `entry_point` format is `module.path:function_name` using Python identifiers (underscores, not hyphens).
-
-**Do NOT edit `pyproject.toml` directly.** It is auto-generated from `huitzo.yaml`:
-- `huitzo pack build` and `huitzo pack dev` regenerate it automatically
-- `huitzo pack sync` regenerates it on demand
+The referenced doc must exist under this project's `docs/commands/` before
+the command is committed — docs first, code implements them.

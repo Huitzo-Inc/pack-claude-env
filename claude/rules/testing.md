@@ -1,259 +1,145 @@
-# Testing Rules
+---
+paths:
+  - "tests/**/*.py"
+  - "pack/tests/**/*.py"
+  - "packs/*/tests/**/*.py"
+  - "conftest.py"
+---
 
-## Setup
+# Testing
 
-Tests use `pytest` with `pytest-asyncio`. The pack's `conftest.py` is auto-generated with common fixtures.
+Full patterns and a worked mock-`Context` example: the `huitzo-sdk` skill.
+This rule is the condensed, always-loaded version.
 
-```bash
-source venv/bin/activate
-pytest -v
+## What a scaffolded pack actually has
+
+`huitzo pack new` generates `pyproject.toml` with:
+
+```toml
+[tool.pytest.ini_options]
+asyncio_mode = "auto"   # async tests need no @pytest.mark.asyncio decorator
+testpaths = ["tests"]
+
+[tool.mypy]
+strict = true
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
 ```
 
-## Test File Naming
+`conftest.py` only adds `src/` to `sys.path` — there is **no** shared
+`mock_ctx` fixture, no factory-boy, no faker, no pytest plugins beyond
+`pytest-asyncio`/`pytest-cov`/`mypy`/`ruff` (the scaffold's own
+`dev_dependencies`). If you want a shared mock-Context fixture, write it
+yourself in `conftest.py` — don't assume one already exists.
 
-- One test file per command: `tests/test_{command_name}.py`
-- Test file mirrors command file: `commands/analyze.py` → `tests/test_analyze.py`
+## Pattern 1 — pure helpers first
 
-## Async Test Pattern
-
-All command tests must be async. Commands take **two** arguments — `async def fn(args, ctx)` — so every call passes the `mock_ctx` fixture (defined below) alongside the args model:
+Extract logic into a plain function your command delegates to; test it with
+no `Context` and no `async` at all:
 
 ```python
-import pytest
-from my_pack.commands.analyze import analyze_text, AnalyzeArgs
+def greet(name: str) -> str:
+    return f"Hello, {name}!"
 
-@pytest.mark.asyncio
-async def test_analyze_text_basic(mock_ctx):
-    """Test basic analysis."""
-    args = AnalyzeArgs(text="Hello world", language="en")
-    result = await analyze_text(args, mock_ctx)
-
-    assert "analysis" in result
-    assert result["language"] == "en"
+def test_greet() -> None:
+    assert greet("Alice") == "Hello, Alice!"
 ```
 
-## Mock Context
+This is the cheapest, fastest test in the suite — prefer it whenever the
+logic doesn't actually need `ctx`.
 
-Context services are not available in tests. Create a mock — put this fixture in `tests/conftest.py` so every test file can use it:
+## Pattern 2 — bare `Context()`
+
+For a command that touches no service, call the decorated function directly
+with a default `Context()`:
+
+```python
+from huitzo_sdk import Context
+from my_pack.commands.hello import hello_world
+
+async def test_hello_world() -> None:
+    result = await hello_world({}, Context())
+    assert result["message"] == "Hello, World!"
+```
+
+## Pattern 3 — `MagicMock(spec=Context)` + `AsyncMock`
+
+For a command that calls services, mock only the ones it uses. Every service
+is awaited except `ctx.log` (sync):
 
 ```python
 from unittest.mock import AsyncMock, MagicMock
 from huitzo_sdk import Context
 
-@pytest.fixture
-def mock_ctx():
-    """Create a mock Context with stubbed services."""
+def make_mock_ctx() -> MagicMock:
     ctx = MagicMock(spec=Context)
     ctx.llm = AsyncMock()
-    ctx.http = AsyncMock()
-    ctx.email = AsyncMock()
-    ctx.telegram = AsyncMock()
-    ctx.files = AsyncMock()
-    ctx.storage = AsyncMock()      # async key/value storage (get/save)
-    ctx.secrets = MagicMock()      # secrets.require()/get() are sync
-    ctx.command_name = "test-command"
-    ctx.namespace = "test-pack"
+    ctx.secrets = AsyncMock()   # require/get/exists are all async
+    ctx.log = MagicMock()       # sync — the one exception
     return ctx
+
+async def test_calls_llm() -> None:
+    ctx = make_mock_ctx()
+    ctx.secrets.require.return_value = "sk-test"
+    ctx.llm.complete.return_value = "the answer"
+    result = await analyze_text({"text": "hi"}, ctx)
+    ctx.llm.complete.assert_awaited_once()
+    assert result["answer"] == "the answer"
 ```
 
-Then use it in tests:
+`ctx.files.list()` returns `list[dict]`, never `list[str]` — stub it as
+dicts (`[{"name": "a.json"}, ...]`), not bare filenames.
+
+## Testing storage without a real backend
+
+`InMemoryBackend`, `StorageClient`, and `StorageNamespace` are all public and
+importable directly from `huitzo_sdk`:
 
 ```python
-@pytest.mark.asyncio
-async def test_command_uses_llm(mock_ctx):
-    """Test command that calls LLM."""
-    mock_ctx.llm.chat.return_value = {"content": "response"}
+from uuid import uuid4
+from huitzo_sdk import InMemoryBackend, StorageClient, StorageNamespace
 
-    args = MyArgs(prompt="Hello")
-    result = await my_command(args, mock_ctx)
-
-    mock_ctx.llm.chat.assert_called_once()
-    assert result["response"] == "response"
+async def test_storage_roundtrip() -> None:
+    namespace = StorageNamespace(tenant_id=uuid4(), user_id=uuid4(), pack_id="my-pack")
+    storage = StorageClient(InMemoryBackend(), namespace)
+    await storage.save("key", {"value": 1})
+    assert await storage.get("key") == {"value": 1}
 ```
 
-### Mocking `ctx.files.list()`
+Use this for a command's own storage-adjacent logic; don't use it to test
+the SDK's storage backend itself — that's already covered upstream.
 
-`ctx.files.list()` returns a list of **dicts** keyed by `path` — never plain
-strings. Stub it accordingly, or code iterating the result as strings will
-pass in tests and crash in production:
+## Manifest contract test
+
+Assert `huitzo.yaml` actually parses and validates, once per pack:
 
 ```python
-mock_ctx.files.list.return_value = [
-    {"path": "data/file1.json"},
-    {"path": "data/file2.json"},
-]
-# list() returns dicts keyed by "path" — never plain strings
+from pathlib import Path
+from huitzo_sdk.manifest import load_manifest
+
+def test_manifest_is_valid() -> None:
+    manifest = load_manifest(Path(__file__).parent.parent / "huitzo.yaml")
+    assert manifest.pack.namespace == "my-pack"
 ```
 
-## Pydantic Validation Testing
+This catches a schema drift (missing `policy:`, an unbacked permission
+token, `extra="forbid"` violations) before `huitzo pack validate` does.
 
-Test that invalid inputs are rejected:
+## What NOT to test
 
-```python
-import pytest
-from pydantic import ValidationError
+Don't test the platform: timeout enforcement, retry/backoff, queue dispatch,
+the stale-execution reaper, SSRF blocking, DDL rejection, or anything else
+the SDK itself already guarantees. Test *your* command logic — what it does
+with a given `args`/`ctx`, and what it raises when a dependency fails.
 
-def test_args_rejects_empty_text():
-    """Test that empty text is rejected."""
-    with pytest.raises(ValidationError):
-        AnalyzeArgs(text="")
-
-def test_args_rejects_invalid_count():
-    """Test count must be positive."""
-    with pytest.raises(ValidationError):
-        AnalyzeArgs(text="hello", count=-1)
-
-def test_args_defaults():
-    """Test default values are applied."""
-    args = AnalyzeArgs(text="hello")
-    assert args.language == "en"
-    assert args.max_tokens == 1000
-```
-
-## Test Structure
-
-```python
-"""
-Module: test_analyze
-Description: Tests for the analyze command
-
-Implements:
-    - docs/commands/analyze-text.md
-"""
-
-import pytest
-from my_pack.commands.analyze import analyze_text, AnalyzeArgs
-
-class TestAnalyzeText:
-    """Tests for analyze_text command."""
-
-    @pytest.mark.asyncio
-    async def test_basic_analysis(self, mock_ctx):
-        """Test basic text analysis."""
-        args = AnalyzeArgs(text="Hello world")
-        result = await analyze_text(args, mock_ctx)
-        assert "analysis" in result
-
-    @pytest.mark.asyncio
-    async def test_with_language(self, mock_ctx):
-        """Test with explicit language."""
-        args = AnalyzeArgs(text="Hola mundo", language="es")
-        result = await analyze_text(args, mock_ctx)
-        assert result["language"] == "es"
-
-    def test_invalid_args(self):
-        """Test validation rejects bad input."""
-        from pydantic import ValidationError
-        with pytest.raises(ValidationError):
-            AnalyzeArgs(text="")
-```
-
-## Coverage
-
-Run with coverage to ensure all commands are tested:
+## Running tests
 
 ```bash
-pytest --cov=src/ --cov-report=term-missing -v
+huitzo pack test          # preferred, if the CLI is installed
+pytest -v                 # direct invocation
+pytest --cov=src/ --cov-report=term-missing -v   # with coverage
 ```
 
-Every command function must have at least one test. Untested commands will be flagged during review.
-
----
-
-## Dashboard Testing
-
-Dashboard tests use **Vitest** + **React Testing Library**.
-
-### Setup
-
-```bash
-npm test
-```
-
-### Test File Naming
-
-- Component tests: `src/components/{Name}/{Name}.test.tsx`
-- Page tests: `src/pages/{PageName}.test.tsx`
-
-### Component Test Pattern
-
-```typescript
-import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
-import { MyComponent } from './MyComponent';
-
-describe('MyComponent', () => {
-  it('renders correctly', () => {
-    render(<MyComponent title="Test" />);
-    expect(screen.getByText('Test')).toBeInTheDocument();
-  });
-
-  it('handles user interaction', async () => {
-    const onSubmit = vi.fn();
-    render(<MyComponent onSubmit={onSubmit} />);
-    fireEvent.click(screen.getByRole('button', { name: /submit/i }));
-    expect(onSubmit).toHaveBeenCalled();
-  });
-});
-```
-
-### Wrap components in `HuitzoProvider`
-
-SDK hooks (`useCommand`, `useHubContext`, ...) only work inside a `HuitzoProvider`. Render components under a provider with a mock mount context — define a small `renderWithHuitzo` helper and reuse it:
-
-```typescript
-import { render } from '@testing-library/react';
-import { HuitzoProvider } from '@huitzo/dashboard-sdk-react';
-import type { ReactElement } from 'react';
-
-const mockContext = {
-  apiUrl: 'http://localhost:8000',
-  getToken: () => 'test-token',
-  slug: 'test-dashboard',
-  sdkVersion: '4.1.0',
-  user: { id: '1', email: 'test@test.com', roles: ['admin'], tenantId: 't1' },
-  navigate: vi.fn(),
-  navigateToHub: vi.fn(),
-  navigateToDashboard: vi.fn(),
-  showNotification: vi.fn(),
-  on: vi.fn(() => vi.fn()),
-  emit: vi.fn(),
-};
-
-function renderWithHuitzo(ui: ReactElement) {
-  return render(<HuitzoProvider context={mockContext}>{ui}</HuitzoProvider>);
-}
-```
-
-### Mock useCommand
-
-`useCommand` is **execute-based**: it returns `{ execute, data, loading, error, reset, status, isIdle, isSuccess, isError }`. Calling code triggers a command with `execute(args)` — it does NOT auto-run. Mock the full shape so components don't crash reading `status`/`reset`:
-
-```typescript
-import { vi } from 'vitest';
-
-vi.mock('@huitzo/dashboard-sdk-react', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@huitzo/dashboard-sdk-react')>()),
-  useCommand: () => ({
-    execute: vi.fn(),
-    reset: vi.fn(),
-    data: { result: 'mocked' },
-    loading: false,
-    error: null,
-    status: 'success',
-    isIdle: false,
-    isSuccess: true,
-    isError: false,
-  }),
-}));
-```
-
-Spreading `importOriginal()` keeps `HuitzoProvider` and the other hooks intact while overriding only `useCommand`.
-
-### What to Test
-
-- Rendering with props (under `renderWithHuitzo`)
-- User interactions (click, type, keyboard) and that they call `execute`
-- Loading states (when `useCommand` returns `loading: true` / `status: 'loading'`)
-- Error states (when `useCommand` returns an error / `status: 'error'`)
-- Accessibility (roles, labels, keyboard navigation)
+Every command function should have at least one test.
