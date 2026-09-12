@@ -52,7 +52,7 @@ Pick one channel per project. Both together work but hooks would run twice.
 
 ### Always-on core
 
-`.claude/rules/00-huitzo-core.md` (≈150 lines) is the only always-loaded context: project detection,
+`.claude/rules/00-huitzo-core.md` (about 100 lines) is the only always-loaded context: project detection,
 the docs-first loop, twelve non-negotiable rules, the `ctx` services table, and where to get more
 context (installed package → reference skills → project docs MCP → docs.huitzo.ai → CLI `--help` →
 worked examples). Everything else loads on demand.
@@ -97,7 +97,10 @@ matching file is edited.
 Session context at start; a blocking secrets scan on writes (API keys, tokens, private keys);
 non-blocking nudges after edits (missing traceability header, hex colours in dashboards,
 `model=` on `ctx.llm`, `dangerouslySetInnerHTML`, ruff findings); a summary of unheadered files when
-you stop. Outside a Huitzo project every hook exits immediately.
+you stop. Outside a Huitzo project every hook exits immediately. The secrets scan skips JWT-shaped
+and generic `sk-…` examples in prose files (`.md`, `.rst`, `.txt`) and honours
+`HUITZO_SECRETS_SCAN=warn` (report, never block) or `=off`. The seeded permission allowlist in
+`.claude/settings.json` only applies once you trust the workspace in Claude Code.
 
 ### Project docs MCP server
 
@@ -112,7 +115,9 @@ pip install "your-docs-mcp==1.1.2" "mcp<2"    # 1.1.2 needs the mcp 1.x SDK
 ```
 
 Claude Code reads MCP configuration from `.mcp.json`, not from `.claude/settings.json`; `/huitzo-init`
-writes the entry when `docs/` exists.
+writes the entry when `docs/` exists. This project-local server is different from the Hub-hosted
+documentation server that `huitzo mcp setup docs` configures in your user-level Claude settings: one
+serves your own `docs/`, the other serves the platform documentation.
 
 ## Profiles
 
@@ -133,7 +138,8 @@ python3 scripts/check_api_surface.py     # documented API facts vs the published
 python3 scripts/check_links.py           # every external link resolves (network)
 python3 scripts/simulate_seed.py         # what each profile seeds into a project
 bash scripts/test_hooks.sh               # hook behaviour against synthetic Claude Code events
-claude plugin validate . --strict        # plugin + marketplace manifests
+claude plugin validate . --strict        # marketplace manifest (+ nested plugin manifest)
+claude plugin validate ./claude --strict # skills and agents frontmatter
 ```
 
 CI runs all of these on every pull request. See `CONTRIBUTING.md`.

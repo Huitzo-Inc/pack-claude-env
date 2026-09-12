@@ -47,7 +47,7 @@ EXPECTED_HZ_CLASSES = {
     "hz-terminal__copy--ok",
     "hz-btn", "hz-btn--primary", "hz-btn--secondary", "hz-btn--ghost",
     "hz-eyebrow", "hz-eyebrow--accent",
-    "hz-kbd", "hz-code",
+    "hz-kbd", "hz-code", "hz-form",
 }
 EXPECTED_HZ_FAMILIES = ("hz-tf", "hz-dashboard", "hz-form")
 NEVER_SHIPPED = {"hz-arch"}

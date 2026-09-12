@@ -72,7 +72,7 @@ case "$REL" in
   *.tsx | *.css)
     base="$(basename "$REL")"
     if [ "$base" != "index.css" ]; then
-      if grep -Eq '#[0-9a-fA-F]{3,8}\b|rgb\(|hsl\(' "$FILE_PATH" 2>/dev/null; then
+      if grep -Eq '#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b|rgb\(|hsl\(' "$FILE_PATH" 2>/dev/null; then
         printf 'post-edit: %s has a hardcoded color literal — use var(--color-*) tokens instead\n' \
           "$REL" >&2
       fi
@@ -89,8 +89,9 @@ fi
 case "$REL" in
   *.py)
     if command -v ruff >/dev/null 2>&1; then
-      RUFF_OUT="$(ruff check "$FILE_PATH" 2>&1)"
-      if [ -n "$RUFF_OUT" ]; then
+      RUFF_OUT="$(ruff check -q "$FILE_PATH" 2>&1)"
+      RUFF_RC=$?
+      if [ "$RUFF_RC" -ne 0 ] && [ -n "$RUFF_OUT" ]; then
         printf 'post-edit: ruff check %s (non-blocking):\n%s\n' "$REL" "$RUFF_OUT" >&2
       fi
     fi

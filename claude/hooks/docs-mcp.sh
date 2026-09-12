@@ -27,7 +27,10 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=./_lib.sh
 . "$SCRIPT_DIR/_lib.sh"
 
-hz_in_project || exit 0
+if ! hz_in_project; then
+  printf 'docs-mcp: no Huitzo project marker (huitzo.yaml / huitzo-dashboard.yaml) in %s\n' "$PWD" >&2
+  exit 1
+fi
 
 PRINT_CONFIG=0
 for arg in "$@"; do

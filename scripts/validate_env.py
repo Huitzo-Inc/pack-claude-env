@@ -221,9 +221,18 @@ def check_plugin(root: Path, rep: Report) -> None:
 
 
 def check_frontmatter(root: Path, rep: Report) -> None:
+    reserved = {"init", "review", "commit", "help", "clear", "compact", "config", "status"}
+    reference = {"huitzo-sdk", "huitzo-manifest", "huitzo-dashboard-sdk", "cli-non-interactive",
+                 "huitzo-platform", "huitzo-methodology"}
     for skill in sorted((root / "claude" / "skills").glob("*/SKILL.md")):
         fm = frontmatter(skill)
         rel = skill.relative_to(root)
+        if skill.parent.name in reserved:
+            rep.add("frontmatter", f"{rel}: skill name '{skill.parent.name}' shadows a Claude Code built-in")
+        if skill.parent.name not in reference and fm.get("disable-model-invocation", "").lower() != "true":
+            rep.add("frontmatter", f"{rel}: workflow skills must set disable-model-invocation: true")
+        if skill.parent.name in reference and fm.get("disable-model-invocation", "").lower() == "true":
+            rep.add("frontmatter", f"{rel}: reference skills must stay model-invocable")
         if fm.get("name") != skill.parent.name:
             rep.add("frontmatter", f"{rel}: name '{fm.get('name')}' != folder '{skill.parent.name}'")
         desc = fm.get("description", "")
@@ -253,11 +262,8 @@ def check_frontmatter(root: Path, rep: Report) -> None:
 def check_text(root: Path, rep: Report) -> None:
     skip = {".git", "node_modules", "__pycache__", ".venv", "venv"}
     self_path = Path(__file__).resolve()
-    vendored = {"scripts/check_legal_headers.py"}
     for path in iter_text_files(root, skip):
         if path.resolve() == self_path:
-            continue
-        if str(path.relative_to(root)).replace(os.sep, "/") in vendored:
             continue
         rel = str(path.relative_to(root)).replace(os.sep, "/")
         text = path.read_text(encoding="utf-8", errors="replace")

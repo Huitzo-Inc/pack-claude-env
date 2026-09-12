@@ -33,9 +33,25 @@ CONTENT="$(hz_get_write_content "$INPUT")"
 # credential is allowed to appear on purpose (a documented placeholder or
 # the docs that talk about secrets), never a place secrets actually live.
 case "$FILE_PATH" in
-  *.env.example | *.env.sample | *secrets-scan.sh | docs/*secret*)
+  *.env.example | *.env.sample | *secrets-scan.sh | */docs/*secret* | docs/*secret*)
     exit 0
     ;;
+esac
+
+# --- kill switch --------------------------------------------------------------
+# HUITZO_SECRETS_SCAN=off disables the scan; =warn reports but never blocks.
+# Documented in README ("Hooks"). Default: block (exit 2).
+SCAN_MODE="${HUITZO_SECRETS_SCAN:-block}"
+case "$SCAN_MODE" in
+  off | OFF | 0) exit 0 ;;
+esac
+
+# Prose files legitimately show token *shapes* (docs, READMEs, ADRs). Keep the
+# unambiguous credential formats for them, but skip the two patterns that also
+# match ordinary examples (JWT-shaped strings and generic sk-... keys).
+PROSE=0
+case "$FILE_PATH" in
+  *.md | *.mdx | *.rst | *.txt) PROSE=1 ;;
 esac
 
 # --- pattern list ------------------------------------------------------------
@@ -58,10 +74,12 @@ hz_scan "Slack token (xox[abprs]-...)" 'xox[abprs]-[A-Za-z0-9-]{10,}'
 hz_scan "Stripe live key (sk_live_...)" 'sk_live_[0-9A-Za-z]{20,}'
 hz_scan "Google API key (AIza...)" 'AIza[0-9A-Za-z_-]{35}'
 hz_scan "PEM private key block" '-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----'
-hz_scan "JWT (eyJ...eyJ...)" 'eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+'
-# OpenAI-shaped key last: broadest pattern, checked only if nothing more
-# specific already matched (sk-huitzo-... and sk-ant-... are checked first).
-hz_scan "OpenAI-shaped key (sk-...)" '\bsk-[A-Za-z0-9]{32,}'
+if [ "$PROSE" -eq 0 ]; then
+  hz_scan "JWT (eyJ...eyJ...)" 'eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+'
+  # OpenAI-shaped key last: broadest pattern, checked only if nothing more
+  # specific already matched (sk-huitzo-... and sk-ant-... are checked first).
+  hz_scan "OpenAI-shaped key (sk-...)" '\bsk-[A-Za-z0-9]{32,}'
+fi
 
 if [ -n "$MATCH_LABEL" ]; then
   {
@@ -72,6 +90,9 @@ if [ -n "$MATCH_LABEL" ]; then
     printf '    - shell/CI: read it from an environment variable\n'
     printf '    - docs/tests needing a placeholder: put it in .env.example\n'
   } >&2
+  case "$SCAN_MODE" in
+    warn | WARN) exit 0 ;;
+  esac
   exit 2
 fi
 

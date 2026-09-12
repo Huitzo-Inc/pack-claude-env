@@ -155,7 +155,7 @@ if command -v claude >/dev/null 2>&1; then
   CLAUDE_VER_RAW="$(hz_run_guarded 3 claude --version)"
   CLAUDE_VER="$(printf '%s' "$CLAUDE_VER_RAW" | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
   if [ -n "$CLAUDE_VER" ] && hz_version_lt "$CLAUDE_VER" "$CLAUDE_CODE_RULES_FLOOR"; then
-    HINT2="path-scoped rules (claude/rules/*.md) need Claude Code >= $CLAUDE_CODE_RULES_FLOOR (found $CLAUDE_VER)"
+    HINT2="Claude Code $CLAUDE_VER is below $CLAUDE_CODE_RULES_FLOOR: YAML-list paths: in .claude/rules/*.md may load unscoped (always on) — upgrade Claude Code"
   fi
 fi
 

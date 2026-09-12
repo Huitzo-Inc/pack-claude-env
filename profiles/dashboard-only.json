@@ -35,6 +35,7 @@
       "claude/skills/draft-spec/SKILL.md",
       "claude/skills/draft-spec/templates/spec-template.md.tmpl",
       "claude/skills/draft-spec/templates/questionnaire.md.tmpl",
+      "claude/skills/draft-docs/SKILL.md",
       "claude/skills/scaffold-dashboard/SKILL.md",
       "claude/skills/validate-dashboard/SKILL.md",
       "claude/skills/test-dashboard/SKILL.md",
@@ -52,7 +53,6 @@
       "claude/rules/pack-manifest.md",
       "claude/skills/huitzo-sdk/",
       "claude/skills/huitzo-manifest/",
-      "claude/skills/draft-docs/",
       "claude/skills/add-command/",
       "claude/skills/test-pack/",
       "claude/skills/validate-pack/"

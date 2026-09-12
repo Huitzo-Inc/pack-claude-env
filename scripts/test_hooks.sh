@@ -58,6 +58,14 @@ expect_exit "allows ordinary code" 0 "$HOOKS/secrets-scan.sh" \
 expect_exit "allows .env.example" 0 "$HOOKS/secrets-scan.sh" \
   '{"tool_name":"Write","tool_input":{"file_path":".env.example","content":"AWS_KEY=AKIAIOSFODNN7EXAMPLE"}}'
 expect_exit "tolerates empty input" 0 "$HOOKS/secrets-scan.sh" ''
+expect_exit "allows a JWT-shaped example in markdown" 0 "$HOOKS/secrets-scan.sh" \
+  '{"tool_name":"Write","tool_input":{"file_path":"'"$TMP"'/project/docs/commands/x.md","content":"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIn0.sig"}}'
+expect_exit "still blocks a real key in markdown" 2 "$HOOKS/secrets-scan.sh" \
+  '{"tool_name":"Write","tool_input":{"file_path":"'"$TMP"'/project/README.md","content":"sk-huitzo-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}}'
+expect_exit "allows an absolute docs/*secret* path" 0 "$HOOKS/secrets-scan.sh" \
+  '{"tool_name":"Write","tool_input":{"file_path":"'"$TMP"'/project/docs/secrets.md","content":"sk-huitzo-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}}'
+printf '%s' '{"tool_name":"Write","tool_input":{"file_path":"x.py","content":"AKIAIOSFODNN7EXAMPLE1"}}' | (cd "$TMP/project" && HUITZO_SECRETS_SCAN=warn bash "$HOOKS/secrets-scan.sh") >"$TMP/out" 2>"$TMP/err"; got=$?
+if [ "$got" -eq 0 ] && grep -q "AWS" "$TMP/err"; then pass "warn mode reports without blocking"; else fail "warn mode (exit $got)"; fi
 
 echo "post-edit.sh"
 expect_exit "warns on missing traceability (non-blocking)" 0 "$HOOKS/post-edit.sh" \
@@ -81,6 +89,8 @@ expect_stdout_contains "detects a pack" "pack"
 expect_stdout_contains "reports the namespace" "demo"
 
 echo "docs-mcp.sh"
+mkdir -p "$TMP/notproject" && ( cd "$TMP/notproject" && timeout 5 bash "$HOOKS/docs-mcp.sh" >"$TMP/out" 2>"$TMP/err" ); got=$?
+if [ "$got" -eq 1 ] && grep -q "project marker" "$TMP/err"; then pass "exits 1 with a message outside a Huitzo project"; else fail "outside project: exit $got"; fi
 ( cd "$TMP/project" && DOCS_ROOT='${CLAUDE_PROJECT_DIR}/docs' timeout 5 bash "$HOOKS/docs-mcp.sh" --print-config >"$TMP/out" 2>"$TMP/err" )
 expect_stdout_contains "resolves docs root from CWD when unexpanded" "$TMP/project/docs"
 rm -rf "$TMP/project/docs"
