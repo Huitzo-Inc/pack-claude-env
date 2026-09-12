@@ -6,16 +6,11 @@
 Module: scripts.check_legal_headers
 Description: Checks (and mechanically fixes) the Huitzo legal header on every
     first-party source file, plus repo-level license/metadata invariants.
-    Stdlib only, so it runs identically in the parent repo, in every submodule
-    checkout (vendored copy), in CI, and in the nightly IP-compliance sweep.
+    Stdlib only, so it runs identically locally and in CI.
 
 Implements:
-    - docs/governance/ip-protection.md#legal-header-standard
-    - docs/governance/ip-protection.md#enforcement-pipeline
-
-See Also:
-    - docs/governance/ip-protection.md#nightly-ip-compliance-sweep
-    - .claude/rules/legal-headers.md
+    - Huitzo legal-header policy (copyright + SPDX line on every first-party
+      source file; identifier from .legal-header.json)
 
 Usage:
     check_legal_headers.py                    # full-tree check (+ repo checks)

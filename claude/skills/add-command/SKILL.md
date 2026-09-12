@@ -1,140 +1,97 @@
 ---
 name: add-command
-description: Scaffold a new command with args model, function, test, and manifest entry
-argument-hint: "<command-name>"
+description: Scaffold a new pack command — docs, args model, function, test, and manifest entry.
+argument-hint: "<verb-noun>"
 disable-model-invocation: true
 ---
 
 # /add-command
 
-Scaffold a new command for this Intelligence Pack.
+Scaffold a new command for this Intelligence Pack. Docs-first: a command's
+documented contract must exist before its implementation.
 
 ## Steps
 
-1. **Parse the command name from `$ARGUMENTS`**. The name should be in `verb-noun` kebab-case format (e.g., `analyze-text`, `generate-report`). If no name is provided, ask the user.
+1. **Parse the command name from `$ARGUMENTS`** — `verb-noun` kebab-case
+   (e.g. `analyze-text`). Ask the user if it's missing.
 
-2. **Convert the command name** to a Python-safe identifier: replace hyphens with underscores (e.g., `analyze-text` → `analyze_text`).
+2. **Docs-first gate.** Check `docs/commands/{name}.md`:
+   - Exists → read it. It is the implementation contract.
+   - Missing → stop and run `/draft-docs {name}` first (or ask the user to),
+     then come back to this skill. Do not scaffold a command with no
+     documented contract.
 
-3. **Identify the pack structure** by reading `huitzo.yaml` to get the namespace, and finding the `src/*/commands/` directory.
+3. **Read `huitzo.yaml`** for `pack.namespace` and the `src/*/commands/`
+   layout.
 
-4. **Create the command file** at `src/{module_name}/commands/{command_identifier}.py`:
+4. **Prefer the real CLI, when `huitzo` is on PATH:**
 
-```python
-"""
-Module: {command_identifier}
-Description: {command_name} command
+   ```bash
+   huitzo pack add-command {name} --description "..." --pydantic
+   ```
 
-Implements:
-    - docs/commands/{command-name}.md
-"""
+   Never pass `--queue default` — the flag offers it, but the manifest schema
+   rejects `queue: "default"` ❌ (and `auto` ❌). Omit `--queue` for the `medium`
+   default, or pass `fast`/`medium`/`long` explicitly.
 
-from pydantic import BaseModel, Field
+5. **Manual fallback** (no CLI, or CLI unavailable) — produce the same files
+   the CLI would:
 
-from huitzo_sdk import Context, command
+   `src/{module_name}/commands/{command_file}.py`:
 
+   ```python
+   """
+   Module: {command_file}
+   Description: {one-line summary, from the doc}
 
-class {ArgsClassName}(BaseModel):
-    """Arguments for {command_name}."""
-    # TODO: Define your arguments here
-    input: str = Field(..., description="Input value")
+   Implements:
+       - docs/commands/{command_file}.md#{name}
+   """
 
+   from pydantic import BaseModel, Field
 
-@command("{command-name}", namespace="{namespace}")
-async def {function_name}(args: {ArgsClassName}, ctx: Context) -> dict:
-    """TODO: Describe what this command does."""
-    # TODO: Implement command logic
-    return {{"result": args.input}}
-```
-
-5. **Update the commands `__init__.py`** to export the new command function.
-
-6. **Ensure a `mock_ctx` fixture exists.** Commands take two arguments — `async def fn(args, ctx)` — so every test must pass a mocked `Context`. If `tests/conftest.py` does not already define a `mock_ctx` fixture, create it:
-
-```python
-"""
-Module: conftest
-Description: Shared pytest fixtures for the pack's command tests
-
-Implements:
-    - docs/commands/README.md
-"""
-
-from unittest.mock import AsyncMock, MagicMock
-
-import pytest
-
-from huitzo_sdk import Context
+   from huitzo_sdk import Context, command
 
 
-@pytest.fixture
-def mock_ctx() -> Context:
-    """A mock Context with stubbed platform services (LLM, HTTP, storage, ...)."""
-    ctx = MagicMock(spec=Context)
-    ctx.llm = AsyncMock()
-    ctx.http = AsyncMock()
-    ctx.email = AsyncMock()
-    ctx.telegram = AsyncMock()
-    ctx.files = AsyncMock()  # if stubbing list(), see testing.md (returns dicts keyed by "path")
-    ctx.storage = AsyncMock()
-    ctx.secrets = MagicMock()
-    ctx.command_name = "test-command"
-    ctx.namespace = "test-pack"
-    return ctx
-```
-
-7. **Create a test file** at `tests/test_{command_identifier}.py`. The command is called with both `args` AND the `mock_ctx` fixture:
-
-```python
-"""
-Module: test_{command_identifier}
-Description: Tests for {command_name}
-
-Implements:
-    - docs/commands/{command-name}.md
-"""
-
-import pytest
-
-from {module_name}.commands.{command_identifier} import {function_name}, {ArgsClassName}
+   class {ArgsClass}(BaseModel):
+       """Arguments for {name}."""
+       # TODO: fields per the documented contract
+       input: str = Field(..., description="Input value")
 
 
-class Test{CommandClassName}:
-    """Tests for {function_name}."""
+   @command("{name}", namespace="{namespace}")
+   async def {command_func}(args: {ArgsClass}, ctx: Context) -> dict:
+       """{one-line summary, from the doc}."""
+       # TODO: implement per docs/commands/{command_file}.md
+       return {"result": args.input}
+   ```
 
-    @pytest.mark.asyncio
-    async def test_basic(self, mock_ctx):
-        """Test basic execution."""
-        args = {ArgsClassName}(input="test")
-        result = await {function_name}(args, mock_ctx)
-        assert "result" in result
+   `tests/test_{command_file}.py` — follow the pack's existing test pattern
+   (a bare `Context()` for pure-logic tests, or a hand-built mock `Context`
+   for a test that exercises a `ctx.*` service — see the `huitzo-sdk` skill
+   for what each service needs mocked and which ones are async).
 
-    def test_args_validation(self):
-        """Test argument validation."""
-        from pydantic import ValidationError
-        # TODO: Test validation rules
-        args = {ArgsClassName}(input="valid")
-        assert args.input == "valid"
-```
+   `huitzo.yaml` — add under `commands:`:
 
-8. **Update `huitzo.yaml`** to add the new command entry under `commands:`. The `entry_point` field is REQUIRED and tells the runtime where to find the command function:
+   ```yaml
+     - name: {name}
+       description: "{one-line summary}"
+       entry_point: "{module_name}.commands.{command_file}:{command_func}"
+   ```
 
-```yaml
-  - name: {command-name}
-    description: TODO - describe this command
-    entry_point: "{module_name}.commands.{command_identifier}:{function_name}"
-    enabled: true
-```
+   Add `timeout`/`queue` only if the command needs a non-default value, and
+   make sure they match the `@command` decorator exactly. **Never add
+   `enabled:`** — the field doesn't exist; an unknown key fails the whole
+   manifest load. If the command needs a new permission (e.g. `http:request`),
+   add it to both `permissions:` and `policy.allowed_actions`, plus its
+   backing `services.*` block — see the `pack-manifest` rule.
 
-Key naming rules for `entry_point`:
-- Uses underscores for both the module path and the function name (e.g., `"claims_v1.commands.save_visit:save_visit"`)
-- Never use hyphens in the Python module path or function name — they are invalid Python identifiers
+6. **Sync and validate:**
 
-**Do NOT edit `pyproject.toml` directly.** It is auto-generated from `huitzo.yaml`. Entry points are regenerated automatically on `huitzo pack build` and `huitzo pack dev`, or manually via `huitzo pack sync`.
+   ```bash
+   huitzo pack sync       # regenerate pyproject.toml from huitzo.yaml
+   huitzo pack validate   # or /validate-pack if the CLI isn't available
+   ```
 
-9. **Run a quick validation** to make sure everything compiles:
-
-```bash
-source venv/bin/activate && python -c "from {module_name}.commands.{command_identifier} import {function_name}"
-```
-
-10. **Print a summary** of what was created and what the developer should do next (implement the command logic, define args, write tests).
+7. **Summarize** what was created and what's still TODO (args fields, command
+   body, test assertions) against the doc's contract.

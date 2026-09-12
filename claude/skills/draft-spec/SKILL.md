@@ -1,7 +1,8 @@
 ---
 name: draft-spec
-description: Guided requirements gathering and specification for new Intelligence Packs and Dashboards
+description: Guided 7-phase requirements gathering that produces a formal spec and architecture doc for a new Pack, Dashboard, or full-stack project.
 argument-hint: "[project-name]"
+disable-model-invocation: true
 ---
 
 # /draft-spec
@@ -70,23 +71,30 @@ Identify all external dependencies:
   - `ctx.secrets` — User-provided API keys and credentials
   - `ctx.telegram` — Telegram messages
   - `ctx.ssh` — Remote command execution
-  - `ctx.mcp` — Model Context Protocol servers
-- "Does this need real-time updates? (WebSocket events)"
+  - `ctx.mcp` — MCP servers this pack calls into
+- "Does this need real-time updates flowing from the pack to the dashboard?"
 - For each external API: note the base URL, auth method, and rate limits
 
 ### Phase 4 — Data Contract Definition
 
-Define schemas for every command and storage need:
+Define schemas for every command and storage need, with a deterministic-first
+split for each:
 - For each identified command:
   - Input arguments: name, type, required flag, validation rules, description
   - Return value: JSON structure with field types and descriptions
+  - **Which parts are plain Python (lookups, rules, thresholds) and which
+    genuinely need a model call** — decompose into 30–750-line, single-
+    responsibility `verb-noun` commands rather than one command that does
+    everything
   - Error conditions: which SDK exceptions and when
-  - Timeout estimate
+  - Timeout estimate, and whether it belongs on the `fast`, `medium`, or
+    `long` queue
 - "What data needs to be persisted?"
   - Storage keys, scope (user/tenant/pack), TTL, data shape
 - For dashboard projects:
   - "What state does the UI need to manage?"
-  - "What data flows between the pack and the dashboard?"
+  - "What data flows from the pack to the dashboard?" — the dashboard
+    renders the pack's decisions; it should compute none of its own
   - Component props and types
 
 ### Phase 5 — Constraint Analysis
@@ -98,6 +106,10 @@ Capture non-functional requirements:
 - "What happens when dependencies are unavailable?" (graceful degradation, fallbacks)
 - "Scale expectations?" (concurrent users, data volume, storage size)
 - "Any regulatory compliance?" (GDPR, HIPAA, SOC 2, industry-specific)
+- **Policy card:** what autonomy level does this need — `read_only`,
+  `suggest`, `act_with_approval`, or `autonomous`? Which commands, if any,
+  must escalate to a human before acting? What is the narrowest set of
+  permissions that covers the integrations from Phase 3?
 
 ### Phase 6 — Specification Generation
 

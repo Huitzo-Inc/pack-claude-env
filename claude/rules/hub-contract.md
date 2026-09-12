@@ -1,56 +1,54 @@
 ---
 paths:
   - "src/main.tsx"
-  - "src/**/*.tsx"
-  - "src/**/*.ts"
+  - "src/dev.tsx"
+  - "dashboard/src/main.tsx"
+  - "dashboards/*/src/main.tsx"
 ---
 
 # Hub Contract Rules
 
-> Reference: `docs/dashboards/loading.md` — the single source of truth for the
-> runtime loading pipeline and module contract.
+Huitzo Hub loads a dashboard as an isolated React micro-frontend via dynamic
+`import()`. `src/main.tsx` is the production entry point Hub calls; `src/dev.tsx`
+is the local dev-only stand-in that exercises the same contract against a mock
+context. Full reference: the `huitzo-dashboard-sdk` skill.
 
-Huitzo Hub dashboards are React micro-frontends loaded dynamically by the Hub. These rules ensure your dashboard integrates correctly.
+## Module contract
 
-## Module Contract
-
-`src/main.tsx` MUST export exactly two functions:
+`src/main.tsx` MUST export exactly these two named functions — nothing else
+about the file's shape matters to Hub:
 
 ```typescript
-export function mount(container: HTMLElement, context: HuitzoContext): void;
+export function mount(container: HTMLElement, context: HuitzoMountContext): void;
 export function unmount(container: HTMLElement): void;
 ```
 
-- `mount` — Creates a React root in `container`, wraps the app in
-  `HuitzoProvider`, and renders it with `context`.
-- `unmount` — Cleans up the React root.
+- Hub calls `mount()` when the user navigates to your dashboard, `unmount()`
+  when they navigate away.
+- `mount` MUST create its own React root in `container` — never assume one
+  exists, never touch anything outside `container`.
+- `unmount` MUST tear that root down (`root.unmount()`) and null out the
+  reference so a stray `mount()` after `unmount()` cannot render into a dead
+  root.
 
-Hub calls `mount` when navigating to your dashboard and `unmount` when navigating away.
-
-## Mandatory: HuitzoProvider + huitzo-dashboard wrapper
-
-You do **not** wire the context manually. Hub passes a vanilla `HuitzoContext`
-object to `mount`; you hand that object to **`HuitzoProvider`**, which exposes it
-to React context so every SDK hook (`useCommand`, `useHubContext`,
-`useHubNavigation`, ...) works. This is required — hooks throw outside a provider.
+## Mandatory: HuitzoProvider + `.huitzo-dashboard` wrapper
 
 ```typescript
 import { createRoot, type Root } from 'react-dom/client';
-import type { HuitzoContext } from '@huitzo/dashboard-sdk';
-import { HuitzoProvider } from '@huitzo/dashboard-sdk-react';
-import '@huitzo/dashboard-sdk-react/styles';   // brand tokens + hz-* primitives
+import { HuitzoProvider, type HuitzoMountContext } from '@huitzo/dashboard-sdk-react';
+import '@huitzo/dashboard-sdk-react/styles';
 import App from './App';
 
 let root: Root | null = null;
 
-export function mount(container: HTMLElement, context: HuitzoContext): void {
+export function mount(container: HTMLElement, context: HuitzoMountContext): void {
   root = createRoot(container);
   root.render(
     <HuitzoProvider context={context}>
       <div className="huitzo-dashboard">
         <App />
       </div>
-    </HuitzoProvider>
+    </HuitzoProvider>,
   );
 }
 
@@ -60,82 +58,86 @@ export function unmount(_container: HTMLElement): void {
 }
 ```
 
-Two non-negotiables:
+1. **`HuitzoProvider` wraps the tree.** Every SDK hook (`useCommand`,
+   `useHubContext`, `useHubNavigation`, ...) throws if rendered outside it.
+   It also owns the token lifecycle — it calls `context.getToken()` for you
+   and re-syncs on rotation; do not call `getToken()` yourself outside your
+   own request code.
+2. **`<div className="huitzo-dashboard">` wraps the app.** Brand tokens and
+   `hz-*` primitives resolve only under this class; theme switching
+   (dark/light) depends on it too.
 
-1. **`HuitzoProvider`** wraps your tree. It calls `context.getToken()` for you
-   automatically — never call `context.getToken()` to surface the JWT yourself.
-2. **`<div className="huitzo-dashboard">`** wraps your app so the brand tokens
-   resolve and theme switching (dark/light) works. See `dashboard-design.md`.
+## `HuitzoMountContext`
 
-## HuitzoContext Interface
-
-The `context` parameter is a plain JavaScript object provided by Hub. You rarely
-touch it directly — `HuitzoProvider` and the hooks consume it for you.
+A plain JS object, not a React context — this is only what Hub hands to
+`mount()`; you consume it through `HuitzoProvider` and the hooks, not
+directly, except in `dev.tsx`'s mock:
 
 ```typescript
-interface HuitzoContext {
-  apiUrl: string;          // Backend API URL
-  getToken: () => string;  // returns the JWT on demand (getter, not a property — never store/log/surface it)
-  slug: string;            // Dashboard slug
-  sdkVersion: string;      // Hub's SDK version (for compatibility checks)
-  user: {
-    id: string;
-    email: string;
-    roles: string[];
-    tenantId: string;
-  };
-  navigate: (path: string) => void;            // Navigate within Hub
-  navigateToHub: () => void;                   // Return to Hub home
-  navigateToDashboard: (slug: string) => void; // Jump to another dashboard
+interface HuitzoMountContext {
+  apiUrl: string;
+  getToken: () => string;     // getter — call fresh, never store or log the result
+  slug: string;
+  sdkVersion: string;
+  user: { id: string; email: string; name?: string; roles: string[]; tenantId: string };
+  theme?: 'light' | 'dark';
+  locale?: string;
+  currency?: string;
+  navigate: (path: string) => void;
+  navigateToHub: () => void;
+  navigateToDashboard: (slug: string) => void;
   showNotification: (message: string, type: 'info' | 'error' | 'success') => void;
   on: (event: string, handler: (data: unknown) => void) => () => void;
   emit: (event: string, data: unknown) => void;
 }
 ```
 
-## Rules
+`theme`, `locale`, and `currency` are optional — a hook that reads them
+(`useHubContext`, `useLocale`) degrades gracefully (a `data-theme`
+MutationObserver fallback for theme; `en-US` for locale) when Hub omits them.
 
-### Isolation
-- **Create your own React root** — Call `createRoot(container)` in `mount`, then wrap the tree in `HuitzoProvider` + the `huitzo-dashboard` div. Never assume a root exists.
-- **CSS Modules only** — All component styles use the `.module.css` suffix. No global CSS that could bleed into Hub. Color/shadow/radius come from brand tokens — see `dashboard-design.md`.
-- **Bundle everything** — Do not mark React or other deps as `external` in Vite config. Hub does not provide shared modules.
+## Events vocabulary
 
-### Navigation
-- **Use `context.navigate()`** for all in-Hub navigation
-- **Use `context.navigateToHub()`** to return to Hub home
-- **Never use `window.location`** directly — Hub manages routing
+Two directions over the **per-mount event bus** exposed as `context.on`/
+`context.emit` — this is not a WebSocket and never requires one:
 
-### DOM
-- **Never modify `document.body`** — Your dashboard lives inside `container` only
-- **Never add global event listeners** without cleaning them up in `unmount`
-- **No `document.title` changes** — Hub manages the page title
+- **Hub → dashboard** (consumed via `useRealtime`): `theme-change`,
+  `navigation`, `viewport-resize`, `locale-change`, plus any pack-level event
+  Hub chooses to re-emit.
+- **Dashboard → Hub** (emitted by `useHubActions`/`useHubBreadcrumbs`):
+  `hub-action:toast`, `hub-action:confirm` (+ reply
+  `hub-action:confirm-result`), `hub-action:open-settings`,
+  `hub-breadcrumbs:set` / `hub-breadcrumbs:clear`.
 
-### Error Handling
-- **Wrap root in `ErrorBoundary`** — The fallback must call `context.navigateToHub()` so users aren't stuck
-- **Handle all async errors** — Every `useCommand` must handle loading and error states
-- **Show actionable error messages** — Tell users what to do, not just what went wrong
+Prefer the hooks over calling `context.on`/`context.emit` directly — they
+handle deduplication and unsubscribe-on-unmount for you.
 
-### Security
-- **Never expose the JWT from `context.getToken()`** in the UI or logs
-- **No `dangerouslySetInnerHTML`** without DOMPurify sanitization
-- **No `eval()` or `Function()` constructors**
+## Teardown rules
 
-## Dev Mode vs Production
+- `unmount()` must leave nothing running: clear every `setInterval`/
+  `setTimeout` your dashboard started, remove every manually-added event
+  listener, and unsubscribe from every `context.on()` subscription (hooks do
+  this for you automatically — a manual `on()` call does not).
+- Never rely on the browser tab closing to clean up. Hub reuses the same page
+  across many dashboard visits; a leaked timer or listener from one visit
+  keeps firing during the next.
+- `unmount(container)` receives the same `container` `mount` was given —
+  don't assume it still has children by the time `unmount` runs.
 
-- `src/main.tsx` — Production entry point (exports `mount`/`unmount`). Vite library mode builds this into `dist/main.js` ESM.
-- `src/dev.tsx` — Development entry point. Creates a mock `HuitzoContext` and calls `mount()` (so it goes through the same `HuitzoProvider` + `huitzo-dashboard` wrapper path). Only used during `npm run dev`. `index.html` loads `dev.tsx`, not `main.tsx`.
+## Dev vs production entry
 
-## Vite Configuration
+- `src/main.tsx` — production entry, built by Vite in library mode into
+  `dist/main.js` (ESM). This is the only file Hub imports.
+- `src/dev.tsx` — dev-only entry. Builds a mock `HuitzoMountContext` (fake
+  `getToken`, console-logging `navigate`/`emit`, a no-op `on`) and calls the
+  real exported `mount()` — so local dev exercises the identical lifecycle
+  Hub uses, just against fake data. Never shipped in the production bundle.
 
-Production build must use library mode:
+## Isolation rules
 
-```typescript
-// vite.config.ts
-build: {
-  lib: {
-    entry: 'src/main.tsx',
-    formats: ['es'],
-    fileName: 'main',
-  },
-}
-```
+- Never read or write `window.location` — use `context.navigate()` /
+  `context.navigateToHub()` / `context.navigateToDashboard()`.
+- Never touch `document.body` or `document.title` — your dashboard owns only
+  its `container`.
+- Bundle every dependency (no Vite `external`) — the dashboard carries its
+  own React, with zero version coupling to Hub.

@@ -59,6 +59,9 @@ category: spec
 
 ## 4. Dashboard Specifications
 
+> The dashboard renders the pack's decisions and lets the user trigger the
+> next command. It computes none of its own business decisions.
+
 ### 4.1 Pages
 
 #### {PageName}
@@ -90,6 +93,15 @@ category: spec
 
 ### Scale
 - {Concurrent users, data volume, storage expectations}
+
+### Policy Card
+
+| Field | Value |
+|-------|-------|
+| Autonomy | `read_only` \| `suggest` \| `act_with_approval` \| `autonomous` |
+| Data scope | `user` \| `tenant` |
+| Commands requiring human approval | {list, or "none"} |
+| Permissions (must be ⊆ allowed_actions) | {e.g. `storage:read`, `llm:complete`} |
 
 ## 6. External Dependencies
 

@@ -5,5 +5,5 @@
     "include": ["*"],
     "exclude": []
   },
-  "note": "This is the default profile. Includes all agents, rules, and skills for combined pack and dashboard development. Path-scoped rules ensure only relevant rules load based on the files being edited."
+  "note": "Default profile. Copies everything under claude/. Path-scoped rules and on-demand reference skills keep the always-on context small regardless of profile."
 }

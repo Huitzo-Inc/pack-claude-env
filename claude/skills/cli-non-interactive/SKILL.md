@@ -1,206 +1,261 @@
 ---
 name: cli-non-interactive
-description: >
-  Drive the `huitzo` CLI programmatically — from scripts, CI, or as an AI agent.
-  Reference for the global `--output json` and `--non-interactive` flags, the
-  `{ok, data|error}` envelope, exit codes, authentication, and headless
-  pack/dashboard/sandbox workflows (scaffold → test → sandbox → publish).
-argument-hint: "[command or workflow to automate]"
+description: >-
+  Huitzo CLI reference: every developer-facing `huitzo` command, `--output json`
+  envelope, exit codes, non-interactive workflows. Use when running or scripting
+  the CLI. Not for SDK code → huitzo-sdk.
 ---
 
-# Huitzo CLI — Non-Interactive & Agent Reference
+> Verified against the Huitzo CLI surface as of 2026-09 (run `huitzo --version`; flags may evolve — `huitzo <cmd> --help` is authoritative).
 
-How to run `huitzo` without a human at the keyboard: scripted publishes, CI
-gates, and AI agents that scaffold, test, sandbox, and ship packs and
-dashboards. Every flag and JSON field below is grounded in the real CLI surface.
+Reference for driving `huitzo` from scripts, CI, or an AI agent — no human at
+the keyboard, output you can parse.
 
----
-
-## Global flags — **MUST come BEFORE the subcommand**
-
-These are options on the top-level `huitzo` callback. The subcommand parser does
-not know them, so they must precede the subcommand:
+## Install
 
 ```bash
-# WRONG — the subcommand rejects the global flag:
-huitzo pack publish --output json        # → "No such option: --output"
+curl -sSf https://raw.githubusercontent.com/Huitzo-Inc/huitzo-launcher/main/install.sh | sh     # Linux / WSL
+brew install Huitzo-Inc/tap/huitzo               # macOS
+huitzo --version                             # verify
+```
 
-# RIGHT — global flags first, then subcommand:
-huitzo --output json --non-interactive pack publish
+The native launcher manages its own Python environment and auto-updates. A
+pack depends on `huitzo-sdk` (PyPI) at runtime — install the CLI, not the SDK,
+to get `huitzo` on `PATH`. See [Installation](https://docs.huitzo.ai/docs/guides/quickstart/installation).
+
+## Global flags — MUST come before the subcommand
+
+Global options belong to the root `huitzo` command, not the subcommand parser:
+
+```bash
+huitzo pack publish --output json      # ❌ subcommand rejects the unknown flag
+huitzo --output json pack publish      # ✅ global flags first
 ```
 
 | Flag | Effect |
 |---|---|
-| `--output {human,json}` | Output format (default `human`). `json` wraps every response in the `{ok, data\|error}` envelope. |
-| `--non-interactive` / `-n` | Fail instead of prompting. **`--output json` already implies this.** |
-| `--verbose` / `-v` | Verbose progress (stderr). |
-| `--quiet` / `-q` | Suppress informational output. |
+| `--output human\|json` | Output format (default `human`). `json` wraps every response in the envelope below. |
+| `-n`, `--non-interactive` | Fail instead of prompting. **Implied by `--output json`.** |
+| `-v`, `--verbose` | Verbose progress. |
+| `-q`, `--quiet` | Suppress informational output. |
 | `--config PATH` | Override the config file. |
 | `--version` | Print version and exit. |
 
----
+## JSON envelope
 
-## The JSON envelope
-
-With `--output json`, every command emits one of these (verified shape):
-
-**Success**
+**Success** (stdout):
 ```json
 {"ok": true, "data": { ... }}
 ```
 
-**Failure**
+**Error** (stderr):
 ```json
 {"ok": false, "error": {"type": "...", "message": "...", "code": <int>}}
 ```
 
-The `data` payload differs per command — see each skill (`/sandbox`, `/publish`)
-and `huitzo <cmd> --help` for the fields. **Caveat:** `pack publish` and
-`dashboard publish` print human-format progress lines on stdout even in JSON
-mode. For those, parse the **last** `{...}` line, not the whole stream, and lean
-on the exit code.
-
----
+Several commands additionally offer their own per-command `--json` flag
+(`pack new --json`, `pack validate --json`, `pack build --json`) that
+**suppresses** the global envelope and prints exactly one hand-shaped stable
+object instead — documented per command below. `pack publish` and
+`dashboard publish` have no such flag and print human progress lines even
+under `--output json`; parse the **last** `{...}` line and trust the exit code.
 
 ## Exit codes
 
-Check the exit code BEFORE parsing stdout. Verified codes the CLI raises:
-
-| Code | Meaning | Retryable? |
+| Code | Meaning | Retry? |
 |---|---|---|
-| 0 | Success | — |
+| 0 | OK | — |
 | 1 | General / unclassified error | No |
-| 2 | Authentication error (token expired/invalid) | After re-auth |
-| 3 | Validation error or command-not-found (bad input/manifest) | No |
+| 2 | Auth error (missing/expired session) | After `huitzo login` |
+| 3 | Validation error (bad input, manifest, or command-not-found) | No |
 | 4 | Network error (can't reach the API) | Yes (backoff) |
 | 5 | Server error (5xx) | Yes (backoff) |
-| 10 | Pack command runtime error | No |
-| 130 | SIGINT (Ctrl+C) | — |
+| 10 | Command execution error (sandbox/pack command failed) | No |
+| 130 | Interrupted (Ctrl+C) | — |
 
----
+Check the exit code before parsing stdout — a `--json` command that fails
+still emits an envelope, but the field shape can differ from the success case.
 
-## Authentication
+## Auth
 
-Token is stored at `~/.huitzo/token`. Options for headless use:
+```bash
+huitzo login [--url URL] [--email E] [--tenant SLUG]
+huitzo logout
+huitzo status [--output json]
+```
 
-| Method | When |
+The password is **never** a flag. Non-interactively, export `HUITZO_PASSWORD`
+before calling `login`; interactively it falls back to a hidden prompt.
+
+```bash
+export HUITZO_PASSWORD="$(pass show huitzo/dev)"
+huitzo --output json login --email dev@acme.com
+unset HUITZO_PASSWORD
+```
+
+For a stored-session/token env var for CI, see `huitzo login --help` — not
+independently confirmed here. `huitzo status` is the smoke test: exit `2`
+means re-authenticate.
+
+## Command tree
+
+### `huitzo pack`
+
+| Command | Key options |
 |---|---|
-| `huitzo login` | Local dev — interactive OAuth (opens a browser). |
-| `HUITZO_AUTH_TOKEN=<jwt>` env var | CI / scripts — bypasses the persistent token file. |
-| `huitzo logout` | Remove the local token (idempotent). |
+| `new [NAME]` | `--namespace`, `--author`, `--email`, `--description`, `--no-input` (never prompt), `--json` → `{"ok","pack","namespace","path"}` |
+| `validate [--path DIR]` | `--strict`, `--check-capabilities/--no-check-capabilities`, `--json` → `{"ok","errors":[...],"warnings":[...]}` |
+| `test` | `--coverage`, `-v/--verbose`, `-p/--parallel`, `-k/--filter PATTERN` |
+| `build` | `-o/--output DIR`, `-f/--format wheel\|sdist`, `--json` → `{"ok","wheel":"<path\|null>","error":"<short\|null>"}` |
+| `dev` | `--docs`, `--port` (default `8080`), `--repl/--no-repl`, `--no-tls`, `--local-keys`, `--log-level`, `--skip-update-check` |
+| `publish` | `--skip-capability-check`, `--no-build` |
+| `install <pkg.whl>` | `--sha256 DIGEST`, `-y/--yes` — **local `.whl` only**; registry-by-name install is not implemented |
+| `list [--local]` | remote by default; `--local` lists installed via entry points |
+| `run <@scope/pack/cmd>` / `huitzo run` | `--args '<json>'`, `--raw`; extra `--flags` pass through as pydantic args |
+| `delete <name>` | `-f/--force` |
+| `add-command [NAME]` | `-d/--description`, `-p/--permissions "a,b"`, `-t/--timeout`, `-q/--queue`, `-r/--retries`, `--pydantic/--no-pydantic`, `--path` |
+| `sync [--path DIR]` | regenerate `pyproject.toml` from `huitzo.yaml` |
+| `exec <command> [--args '<json>']` | `--sandbox-url`, `--sandbox-token`, `--local` (ephemeral), `--port`, `--no-tls`, `--local-keys`, `--pidfile`, `--file PATH` (repeatable) |
+| `list-commands` / `describe <command>` | same sandbox-resolution flags as `exec` |
 
-Smoke-test auth + server at the start of a script:
+❌ `huitzo pack add-command --queue default` — the CLI accepts `default` as a
+value but the SDK rejects it at runtime. Always pass `fast`, `medium`, or
+`long` explicitly.
 
-```bash
-huitzo --output json status
-# exit 2 → token expired/invalid: re-auth and retry.
-```
+### `huitzo dashboard`
 
----
+| Command | Key options |
+|---|---|
+| `new [NAME]` | `--author`, `--namespace`, `--path` |
+| `dev` | runs the dashboard's own dev server |
+| `build` | produces the manifest's declared entry bundle |
+| `validate` | checks the manifest + build output + mount/unmount exports |
+| `publish` | `--dry-run` (bundle + report, upload nothing) |
+| `grant <name> <tenant_uuid>` | `--scope SCOPE`; both args positional |
+| `delete <name>` | `-f/--force` |
 
-## Command map (what to drive non-interactively)
+### `huitzo sandbox` — see the `/sandbox` skill for the full lifecycle
 
-Group commands under `huitzo pack ...`, `huitzo dashboard ...`,
-`huitzo sandbox ...`. Use `huitzo --help` and `huitzo <subcommand> --help` as
-the always-current source of truth.
+`start [--port 8080] [--no-tls] [-b/--background] [--pidfile PATH] [--local-keys] [--token T]`,
+`stop [--pidfile PATH]`, `status [--pidfile PATH]`.
 
-### `pack`
-`new`, `validate` (`--strict`), `test`, `build` (`--output`/`-o`, `--format`/`-f`),
-`dev`, `publish` (`--skip-capability-check`), `install`, `list`, `run`, `delete`
-(`--force`/`-f`), `add-command`, `sync`, **`exec`**, **`list-commands`**,
-**`describe`**. The last three resolve a running sandbox automatically — see
-`/sandbox`.
+### `huitzo secrets` — local-only developer store (this machine, not the deployed pack)
 
-### `dashboard`
-`new` (`--author`), `dev`, `build`, `validate`, `publish` (`--dry-run`), `grant`
-(positional `<slug> <tenant-uuid>`), `delete` (`--force`/`-f`). Stubbed (exit 1,
-backend not implemented): `revoke`, `share`. See `/publish`.
+`set <name> [--value V] [--pack default]` (else `HUITZO_SECRET_VALUE` env, else
+hidden prompt), `list [--pack default]` (names only — every value renders
+`********`), `remove <name> [--pack default]`. There is no `get`/`show`/
+`--reveal` for this store.
 
-### `sandbox`
-`start` (`--port`, `--background`/`-b`, `--no-tls`, `--local-keys`, `--token`,
-`--pidfile`), `status`, `stop`. The sidecar at `<pidfile>.json` carries
-`{url, token, commands, pid}`. See `/sandbox`.
+### `huitzo config`
 
-### Other useful surfaces
-- `huitzo status` — auth + server health smoke test.
-- `huitzo secrets set|list|remove [--pack <pack>]` — per-pack user secrets (values masked).
-- `huitzo config get|set|list|path` — CLI config.
-- `huitzo mcp setup docs [--write|--stdout]` — generate the MCP config that makes
-  the Huitzo **docs** server searchable in Claude Code. `--write` merges it into
-  `~/.claude.json`; `--stdout` prints the JSON for you to place yourself. **Only
-  the `docs` service is supported today** — there is no general sandbox MCP target.
+`get <key> [--reveal]`, `set <key> [value] [--scope user|project]` (sensitive
+keys always hidden-prompt), `unset <key> [--scope user|project]`, `list`,
+`path [--scope user|project]`.
 
----
+### `huitzo mcp`
 
-## End-to-end recipes
+`setup docs [-w/--write] [--stdout]` mints a scoped `sk-huitzo-*` API key and
+builds a Streamable HTTP MCP config for a Huitzo-hosted **docs** server. No
+flag prints the config + a revoke URL for you to add by hand; `--stdout`
+prints just the JSON for piping; `--write` merges the entry into your Claude
+Code MCP config (`~/.claude.json`, user scope — reachable from every project).
+`docs` is currently the only supported service. `huitzo mcp` has a single
+subcommand today (`setup docs`); MCP tool discovery happens inside commands
+via `ctx.mcp` (see `huitzo-platform`). This Hub-hosted docs server is not the
+same thing as the project-local `pack-docs` MCP server: `pack-docs`
+(declared in your project's own `.mcp.json`, launched via `your-docs-mcp`)
+serves *this project's* `docs/` directory, while `huitzo mcp setup docs`
+writes a Huitzo-hosted documentation server into `~/.claude.json`.
 
-### Run a pack command headlessly (one-shot, self-managed sandbox)
+### `huitzo project`
+
+`init <name> [--with-dashboard|--no-dashboard]` scaffolds a Project directory
+holding a Pack and (optionally) a Dashboard. `add-pack` / `add-dashboard` run
+from the Project root to backfill the missing half.
+
+### `huitzo primitives`
+
+`list`, `add <name...> [--out-dir DIR] [--skip-existing/--overwrite]`, `diff`,
+`sync [-y/--yes]` — the `hz-*` dashboard primitive copy-in registry.
+
+### `huitzo account`
+
+`mode` (show current account mode), `developer-mode [--org-name N --org-slug S]`
+(required before publishing).
+
+### Housekeeping (brief)
+
+`huitzo update [--to VER] [--channel NAME] [--dry-run] [--force]`,
+`huitzo rollback [--to GEN_ID] [--force]`, `huitzo pin <component> <version>`,
+`huitzo unpin <component>`, `huitzo lock` (show desired state). These manage
+the launcher-installed CLI itself, not a pack or dashboard.
+
+**Deliberately not covered here** (out of scope for this skill): `pack plan`,
+`pack evaluate`, `runner`, `ext`, `license`, `tenant`, `branding`,
+`integrations secrets`. Run `huitzo <group> --help` if you need one of these.
+
+## Agent workflow: pack, non-interactively
 
 ```bash
 set -e
-huitzo --output json pack exec my-command \
-  --local --args '{"input": "hello"}'
-# --local starts an ephemeral sandbox, runs the command, then stops it.
-```
+huitzo --output json pack new my-pack --no-input --namespace acme
+cd my-pack
 
-### Run against a long-lived background sandbox
-
-```bash
-set -e
-huitzo --output json --non-interactive sandbox start --background --no-tls
-trap 'huitzo sandbox stop || true' EXIT
-
-huitzo --output json pack exec my-command --args '{"input": "hello"}'
-# pack exec auto-discovers {url, token} from ~/.huitzo/sandbox.json
-```
-
-### Validate + publish a private pack
-
-```bash
-set -e
-cd <pack-dir>
-# visibility/namespace live in huitzo.yaml — no CLI flag exists
-huitzo --output json --non-interactive pack validate --strict
+huitzo --output json pack add-command analyze -d "Analyze input" -p "" -q fast
+huitzo --output json pack test | jq -e '.ok'
+huitzo --output json pack validate --strict | jq -e '.ok'
+huitzo --output json pack build | jq -r '.wheel'
 huitzo --output json --non-interactive pack publish
-# publish prints progress lines even in JSON mode — parse the LAST {...} line.
+# publish prints human progress even in JSON mode — parse the LAST {...} line:
+# huitzo --output json pack publish | tail -n1 | jq -e '.ok'
 ```
 
-### Validate + publish a private dashboard
+Run a command headlessly against a throwaway sandbox in one shot:
+
+```bash
+huitzo --output json pack exec analyze --local --args '{"input":"hello"}'
+```
+
+## Agent workflow: dashboard, non-interactively
 
 ```bash
 set -e
-cd <dashboard-dir>
-[ -d node_modules ] || npm install
-huitzo dashboard build                                   # produces dist/main.js
-huitzo --output json --non-interactive dashboard validate
-huitzo --output json --non-interactive dashboard publish --dry-run   # smoke
-huitzo --output json --non-interactive dashboard publish
+huitzo --output json dashboard new my-dash --author "Acme"
+cd my-dash
+npm install
+huitzo dashboard build
+huitzo --output json dashboard validate | jq -e '.ok'
+huitzo --output json dashboard publish --dry-run | jq -e '.ok'
+huitzo --output json dashboard publish
 ```
 
-### Detect token expiry and re-auth
+Visibility and namespace are manifest fields (`huitzo.yaml` /
+`huitzo-dashboard.yaml`), never CLI flags — edit the manifest before
+publishing if you need something other than the default.
 
-```bash
-huitzo --output json status
-if [ "$?" -eq 2 ]; then
-  HUITZO_AUTH_TOKEN="$NEW_TOKEN" huitzo --output json status
-fi
-```
+## Troubleshooting
 
----
+| Symptom | Exit | Fix |
+|---|---|---|
+| Auth error | `2` | `huitzo login` (or refresh whatever CI uses for credentials) |
+| Manifest/input rejected | `3` | Read `.error.message` / `.errors[]`; fix and re-run `pack validate --strict` |
+| Can't reach the API | `4` | Check connectivity/DNS; retry with backoff |
+| 5xx from the backend | `5` | Retry with backoff; not your input |
 
-## Gotchas
+## Anti-patterns
 
-1. **Global flags precede the subcommand.** `huitzo --output json pack publish`, not `huitzo pack publish --output json`.
-2. **`--output json` implies `--non-interactive`** — it never prompts.
-3. **`publish` prints human progress even in JSON mode.** Parse the last `{...}` line; trust the exit code.
-4. **Visibility & namespace are manifest-only** — edit `huitzo.yaml` / `huitzo-dashboard.yaml`, there is no `--visibility`/`--namespace` flag.
-5. **`dashboard publish` requires `dist/`** — run `huitzo dashboard build` first.
-6. **`pyproject.toml` is auto-generated** from `huitzo.yaml`; never hand-edit (run `huitzo pack sync`).
-7. **`--no-tls` disables auth** — localhost only.
-8. **`dashboard revoke` / `dashboard share` are stubs** (exit 1) — don't depend on them yet.
+| ❌ Wrong | ✅ Right |
+|---|---|
+| ❌ `huitzo pack publish --output json` | `huitzo --output json pack publish` |
+| ❌ Parsing the human-readable table output of `pack list` | `huitzo --output json pack list` and parse `.data` |
+| ❌ `huitzo pack add-command --queue default` | `--queue fast\|medium\|long` |
+| ❌ `huitzo login` with `--password` or a literal on the command line | `HUITZO_PASSWORD` env var, or the hidden prompt |
+| ❌ Assuming `huitzo pack install my-pack` installs from a registry | Build (`pack build`) and install the local `.whl` by path |
+| ❌ Treating `huitzo secrets` as where a deployed pack's user secrets live | It's a local dev store only; the pack's `ctx.secrets` never sees it |
 
-## Related skills
+## Read more
 
-- `/sandbox` — sandbox lifecycle + `pack exec`.
-- `/publish` — pack & dashboard publishing details.
-- `/dashboard-e2e` — headless dashboard mount/render/unmount verification.
+- https://docs.huitzo.ai/docs/cli/overview
+- https://docs.huitzo.ai/docs/cli/reference
+- https://docs.huitzo.ai/docs/cli/dashboards
+- https://docs.huitzo.ai/docs/guides/quickstart/installation

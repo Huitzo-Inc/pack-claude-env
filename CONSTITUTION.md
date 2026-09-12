@@ -1,6 +1,6 @@
 # Intelligence Pack Developer Constitution
 
-> Simplified subset of the [Huitzo Constitution](https://github.com/Huitzo-Inc/huitzo/blob/main/CONSTITUTION.md) for pack developers.
+> Developer-facing principles for building on Huitzo.
 
 ---
 

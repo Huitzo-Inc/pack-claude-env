@@ -1,8 +1,24 @@
+---
+paths:
+  - "src/**/*.py"
+  - "src/**/*.ts"
+  - "src/**/*.tsx"
+  - "tests/**/*.py"
+  - "pack/src/**/*.py"
+  - "pack/tests/**/*.py"
+  - "packs/*/src/**/*.py"
+  - "packs/*/tests/**/*.py"
+  - "dashboard/src/**/*.ts"
+  - "dashboard/src/**/*.tsx"
+  - "dashboards/*/src/**/*.ts"
+  - "dashboards/*/src/**/*.tsx"
+---
+
 # Traceability Rules
 
 ## Requirement
 
-Every source file must include a traceability header referencing the documentation it implements. The referenced docs live **inside your project** (`docs/commands/`, `docs/components/`, `docs/pages/`) — not in the Huitzo monorepo. Each command/component you write has a matching doc that defines its contract (the docs-first workflow), and the source file points back at it.
+Every source file must include a traceability header referencing the documentation it implements. The referenced docs live **inside your project** (`docs/commands/`, `docs/components/`, `docs/pages/`) — never in an external repository. Each command/component you write has a matching doc that defines its contract (the docs-first workflow), and the source file points back at it.
 
 ## Format
 
@@ -81,11 +97,18 @@ Dashboard source files use JSDoc-style traceability:
 
 ## Validation
 
-```bash
-# Check all files have traceability headers
-# Pack:
-huitzo validate
+The CLI does **not** check traceability headers — `huitzo pack validate
+--strict` checks the manifest, pipeline permissions, and package layout;
+`huitzo dashboard validate` checks the manifest and bundle exports. Neither
+looks at header content. The real enforcement is this environment's
+`post-edit`/`pre-stop` hooks, which nudge (non-blocking) whenever a matching
+file is written or left uncommitted without one. Run this yourself before
+either CLI command:
 
-# Dashboard:
-huitzo dashboard validate
+```bash
+# Pack — files missing the header (recursive):
+grep -rL "Implements:" --include='*.py' src/ tests/
+
+# Dashboard — files missing the header (recursive):
+grep -rL "@implements" --include='*.ts' --include='*.tsx' src/
 ```

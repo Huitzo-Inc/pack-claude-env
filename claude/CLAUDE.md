@@ -1,177 +1,23 @@
-# Intelligence Pack & Dashboard Development
+# Huitzo project — Claude Code instructions
 
-## Project Type
+This project builds on the Huitzo platform (Intelligence Packs in Python and/or Dashboards in
+React). The Huitzo developer environment lives in `.claude/`:
 
-Detect from files present:
-- `huitzo.yaml` → Intelligence Pack (Python commands)
-- `huitzo-dashboard.yaml` → Dashboard (React micro-frontend in Huitzo Hub)
-- `packs/` + `dashboards/` → Huitzo Application (full-stack, see `docs/guides/application-structure.md`)
-- Both manifests in same dir → Full-stack project (single-project variant)
+- `.claude/rules/00-huitzo-core.md` — the always-on core: project detection, the docs-first loop,
+  the twelve non-negotiable rules, the `ctx` services table, and where to get more context.
+  **Read it first.** Other rules load automatically when you edit matching files.
+- `.claude/skills/` — workflow skills (`/draft-spec`, `/draft-docs`, `/add-command`,
+  `/scaffold-dashboard`, `/test-pack`, `/test-dashboard`, `/validate-pack`, `/validate-dashboard`,
+  `/lint-and-fix`, `/sandbox`, `/publish`, `/dashboard-dev`, `/dashboard-e2e`, `/huitzo-init`) and
+  reference skills (`/huitzo-sdk`, `/huitzo-manifest`, `/huitzo-dashboard-sdk`,
+  `/cli-non-interactive`, `/huitzo-platform`, `/huitzo-methodology`).
+- `.claude/agents/` — `pack-developer`, `pack-reviewer`, `dashboard-developer`,
+  `dashboard-reviewer`, `docs-writer`, `spec-architect`.
+- `.claude/hooks/` — session context, secrets scan, traceability nudges (active only in Huitzo
+  projects) and `docs-mcp.sh`, the launcher for this project's documentation MCP server.
 
-## Workflow: Documentation First
+Project-specific instructions belong below this line or in `CLAUDE.local.md`; the environment
+files above are replaced when the environment is updated. Run `/huitzo-init` after cloning to
+wire the project docs MCP server and refresh the managed blocks.
 
-**Every feature starts with documentation. Code implements the documented contract.**
-
-1. **Spec** (new projects) — `/draft-spec` for structured requirements gathering
-2. **Document** — `/draft-docs <name>` for commands, write `docs/components/` or `docs/pages/` for dashboards
-3. **Implement** — `/add-command <name>` for pack commands, `/scaffold-dashboard <name>` for dashboard components
-4. **Test** — `/test-pack` or `/test-dashboard`
-5. **Validate** — `/validate-pack` or `/validate-dashboard`
-6. **Lint** — `/lint-and-fix`
-
-## Documentation Server (MCP)
-
-The `pack-docs` MCP server makes `docs/` searchable within Claude Code. Tools: `search_documentation`, `get_document`, `navigate_to`, `get_table_of_contents`, `search_by_tags`, `get_all_tags`.
-
-### Documentation Structure
-
-```
-docs/
-├── README.md                # Project overview
-├── spec/                    # Specifications (from /draft-spec)
-├── commands/                # Pack command docs (one per command)
-│   ├── README.md
-│   └── {command-name}.md
-├── components/              # Dashboard component docs
-│   └── {ComponentName}.md
-├── pages/                   # Dashboard page docs
-│   └── {PageName}.md
-└── guides/
-    └── getting-started.md
-```
-
-Every doc file uses YAML frontmatter: `title`, `tags`, `category`, `order`.
-
----
-
-## Pack Development (Python)
-
-### SDK Imports
-
-```python
-from huitzo_sdk import command, Context
-from huitzo_sdk.errors import ValidationError, CommandError, SecretsError
-```
-
-Never import from internal SDK modules.
-
-### Command Pattern
-
-```python
-from pydantic import BaseModel, Field
-from huitzo_sdk import command, Context
-
-class MyArgs(BaseModel):
-    input: str = Field(..., description="Input text")
-    limit: int = Field(default=10, ge=1, le=100)
-
-@command("verb-noun", namespace="pack-name", timeout=60)
-async def verb_noun(args: MyArgs, ctx: Context) -> dict:
-    """Docstring becomes marketplace help text."""
-    return {"result": "value"}
-```
-
-**Rules:** Always `async`. Pydantic `BaseModel` args with `Field` descriptions. Returns `dict`. Name format: `verb-noun` kebab-case. Namespace matches `huitzo.yaml`.
-
-### Context Services
-
-| Service | Access | Purpose |
-|---------|--------|---------|
-| LLM | `ctx.llm` | Language model calls |
-| HTTP | `ctx.http` | External APIs (domain-restricted) |
-| Email | `ctx.email` | Send emails |
-| Storage | `ctx.storage` | Key-value state (`scope="user"` or `"tenant"`) |
-| Files | `ctx.files` | File storage — `write` / `read` / `read_json` / `list` (returns dicts, key `path`) / `exists` / `get_url` |
-| Secrets | `ctx.secrets` | User-provided secrets (`require()` / `get()`) |
-| Telegram | `ctx.telegram` | Telegram messages |
-| SSH | `ctx.ssh` | Run commands on a user-configured remote host |
-| MCP | `ctx.mcp` | Call tools on a connected MCP server |
-
-See `sdk-patterns` rule for the full Context reference.
-
-### Error Handling
-
-Use `huitzo_sdk.errors`: `ValidationError`, `CommandError`, `SecretsError`, `ExternalAPIError`, `TimeoutError`, `StorageError`. Never catch `Exception` broadly.
-
-### Quality Gates
-
-```bash
-pytest -v && ruff check . && ruff format --check . && mypy --strict src/ && huitzo validate
-```
-
----
-
-## Dashboard Development (React)
-
-### Hub Contract
-
-Dashboards are React micro-frontends loaded by Huitzo Hub. The contract:
-
-```typescript
-// src/main.tsx — production entry point
-export function mount(container: HTMLElement, context: HuitzoContext): void;
-export function unmount(container: HTMLElement): void;
-```
-
-`mount` MUST wrap the app in **`HuitzoProvider`** (so SDK hooks work) and in a **`<div className="huitzo-dashboard">`** (so brand tokens resolve). `HuitzoContext` provides: `apiUrl`, `getToken()`, `slug`, `sdkVersion`, `user`, `navigate()`, `navigateToHub()`, `navigateToDashboard()`, `showNotification()`, `on()`, `emit()`. See `hub-contract` rule.
-
-### Key Rules
-
-- CSS Modules only (`.module.css`) — no global CSS that bleeds into Hub
-- Brand tokens + `hz-*` primitives only — no hex/RGB/HSL colors, no UI kits (see `dashboard-design` rule)
-- All API calls through the execute-based `useCommand` hook — never raw fetch
-- `ErrorBoundary` at root with `context.navigateToHub()` fallback
-- No `document.body` manipulation or `window.location` changes
-- Bundle all dependencies (no Vite externals)
-- React 19.2, functional components, TypeScript strict mode
-
-### Dashboard SDK Hooks
-
-`@huitzo/dashboard-sdk-react` 4.1.x provides: `useCommand`, `useHuitzo`,
-`useHubContext`, `useRealtime`, `useHubNavigation`, `useHubActions`,
-`useHubBreadcrumbs`, `useStreamingCommand`, `useConnectionStatus`, `usePacks`,
-`useLocale`. See the `dashboard-developer` agent and `react-patterns` rule for
-signatures and the execute-based `useCommand` shape.
-
-### Manifest
-
-`huitzo-dashboard.yaml` defines name, namespace, version, visibility, `pack_dependencies`, and build config. See `dashboard-manifest` rule for full spec.
-
-### Quality Gates
-
-```bash
-npm test && npx tsc --noEmit && huitzo dashboard validate
-```
-
----
-
-## Shared Rules
-
-### Traceability Headers (REQUIRED on all source files)
-
-**Python:**
-```python
-"""
-Module: module_name
-Description: Brief description
-
-Implements:
-    - docs/commands/verb-noun.md
-"""
-```
-
-**TypeScript:**
-```typescript
-/**
- * @module ComponentName
- * @description Brief description
- * @implements docs/components/ComponentName.md
- */
-```
-
-### Code Quality
-
-- All source files must have traceability headers
-- All commands/components must have docs written FIRST
-- No backwards compatibility hacks — refactor cleanly
-- No hardcoded secrets or API keys
+Public documentation: https://docs.huitzo.ai/docs/

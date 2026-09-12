@@ -1,0 +1,16 @@
+<!-- huitzo:begin -->
+# Huitzo project — agent instructions
+
+This project builds on the Huitzo platform. The rules live in `.claude/rules/*.md`
+— plain markdown, read them regardless of which tool you are. Start with
+`.claude/rules/00-huitzo-core.md`; the rest are path-scoped to matching files.
+
+- Workflow (docs first): spec → docs → implement → test → validate → lint → publish.
+- Quality gates — pack: `pytest`, `ruff check .`, `ruff format --check .`,
+  `mypy --strict src/`, `huitzo pack validate --strict`. Dashboard:
+  `npm run typecheck`, tests, `npm run build`, `huitzo dashboard validate`.
+- Docs: https://docs.huitzo.ai/docs/
+
+Do not duplicate the rules from `.claude/rules/` here — this file only points at
+them so tools without Claude Code's rule-loading know where to look.
+<!-- huitzo:end -->

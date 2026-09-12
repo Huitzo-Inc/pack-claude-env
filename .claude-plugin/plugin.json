@@ -1,0 +1,32 @@
+{
+  "name": "huitzo",
+  "displayName": "Huitzo Developer Environment",
+  "version": "2.0.0",
+  "description": "Build Intelligence Packs and Dashboards on the Huitzo platform: SDK, manifest, CLI, platform API/MCP and dashboard SDK references, docs-first workflow skills, developer/reviewer agents, safety hooks and a project-docs MCP server.",
+  "author": {
+    "name": "Huitzo Inc.",
+    "url": "https://huitzo.ai"
+  },
+  "homepage": "https://docs.huitzo.ai/docs/",
+  "repository": "https://github.com/Huitzo-Inc/pack-claude-env",
+  "license": "LicenseRef-Huitzo-Source-Available",
+  "keywords": [
+    "huitzo",
+    "intelligence-packs",
+    "dashboards",
+    "sdk",
+    "mcp",
+    "python",
+    "react"
+  ],
+  "skills": "./claude/skills/",
+  "agents": [
+    "./claude/agents/dashboard-developer.md",
+    "./claude/agents/dashboard-reviewer.md",
+    "./claude/agents/docs-writer.md",
+    "./claude/agents/pack-developer.md",
+    "./claude/agents/pack-reviewer.md",
+    "./claude/agents/spec-architect.md"
+  ],
+  "hooks": "./hooks/hooks.json"
+}

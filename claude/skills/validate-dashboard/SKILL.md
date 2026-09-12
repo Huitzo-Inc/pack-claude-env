@@ -1,56 +1,73 @@
 ---
 name: validate-dashboard
-description: Validate dashboard manifest, bundle, Hub contract, and traceability
+description: Validate the dashboard manifest, module contract, CSS isolation, tokens, and build output.
 disable-model-invocation: true
 ---
 
 # /validate-dashboard
 
-Validate the dashboard project structure, manifest, Hub contract, and code quality.
+Validate the dashboard project's manifest, Hub contract, and code quality.
 
 ## Steps
 
-1. **Check `huitzo-dashboard.yaml`** exists and validates:
-   - `dashboard.name` — present, kebab-case, 3-50 characters
-   - `dashboard.namespace` — present, lowercase no hyphens, 2-20 characters
-   - `dashboard.version` — present, valid semver
-   - `dashboard.description` — present, 10-200 characters
-   - `dashboard.visibility` — one of: public, unlisted, organization, private
-   - `pack_dependencies` — present (can be empty array)
-   - `build.entry_point` — must be `main.js`
-   - `build.output_directory` — must be `dist`
+1. **Prefer the real CLI, when `huitzo` is on PATH:**
 
-2. **Check Hub contract** — verify `src/main.tsx`:
-   - File exists
-   - Contains `export function mount`
-   - Contains `export function unmount`
-
-3. **Check traceability headers** — for each `.tsx` and `.ts` file in `src/`:
-   - File has a JSDoc comment containing `@implements`
-   - Count files with and without headers
-
-4. **Check CSS isolation** — for each CSS import in `src/`:
-   - All CSS imports use `.module.css` suffix
-   - No bare `.css` imports
-
-5. **Run type checking** (if TypeScript is configured):
    ```bash
-   npx tsc --noEmit 2>&1
+   huitzo dashboard validate
+   # or, to parse programmatically:
+   huitzo --output json dashboard validate
    ```
 
-6. **Check build output** (if `dist/` exists):
-   - `dist/main.js` exists
-   - File contains `mount` and `unmount` (basic export check)
-   - File size is under 50 MB
+   This checks `huitzo-dashboard.yaml` (required fields, kebab-case name,
+   semver version, valid `visibility`) and, when `dist/` exists, the bundle
+   (entry point exists, valid ESM, exports `mount`/`unmount`, under the
+   platform's size limit). Under `--output json` the envelope's `data` is
+   `{name, version, valid, errors?}` — report every entry in `errors` and
+   treat a non-`valid` result as a hard failure.
 
-7. **Report results as a checklist**:
+2. **Manual checklist**, if the CLI is unavailable or you want to check
+   beyond what it covers — see `dashboard-manifest.md` for the full field
+   table:
+
+   a. **Manifest fields.** `dashboard.name`/`namespace`/`version`/
+      `description` present; `visibility` is one of
+      `public|unlisted|organization|private`; `pack_dependencies` present
+      (may be `[]`); `build.entry_point` matches the Vite `lib.fileName`
+      output.
+
+   b. **Module contract** (`src/main.tsx`):
+      - Exports `mount(container, context)` and `unmount(container)`.
+      - `mount` wraps the tree in `HuitzoProvider` **and**
+        `<div className="huitzo-dashboard">` — both are mandatory (see
+        `hub-contract.md`).
+
+   c. **Design tokens** — grep `src/**/*.{tsx,css}` for a raw hex/rgb/hsl color or a Tailwind hex class (`bg-[#...]`); every color should resolve through `var(--color-*)` or an `hz-*` primitive. ❌ Flag any `hz-arch` reference — it ships no CSS.
+
+   d. **CSS isolation** — grep for a bare global element selector
+      (`button {`, `a {`, `:root {`) outside a `.module.css` file or a rule
+      scoped under `.huitzo-dashboard`.
+
+   e. **Traceability headers** — every `.tsx`/`.ts` file under `src/` has a
+      header with `@implements docs/components/*.md` or
+      `docs/pages/*.md`.
+
+   f. **Type checking**, if configured:
+      ```bash
+      npm run typecheck
+      ```
+
+   g. **Build output**, if `dist/` exists:
+      - `dist/main.js` exists, is valid ESM, and contains `mount`/`unmount`.
+      - Bundle size is under the platform's size limit.
+
+3. **Report as a checklist:**
+
    ```
-   Dashboard Validation Results
-   ────────────────────────────
    Manifest (huitzo-dashboard.yaml)  ✓ valid
-   Hub contract (mount/unmount)      ✓ exports present
+   Module contract (mount/unmount)   ✓ exports present, Provider + wrapper OK
+   Design tokens                     ✓ no hex/rgb/hsl literals found
+   CSS isolation                     ✓ no global selectors
    Traceability headers              ✓ 12/12 files
-   CSS isolation                     ✓ all CSS Modules
    Type checking (tsc)               ✓ no errors
-   Build output (dist/)              ✓ 1.2 MB, exports OK
+   Build output (dist/)              ✓ 1.2 MB, mount/unmount present
    ```

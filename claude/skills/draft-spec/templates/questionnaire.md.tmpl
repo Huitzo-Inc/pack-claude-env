@@ -43,7 +43,7 @@
   - [ ] `ctx.ssh` — Remote command execution
   - [ ] `ctx.mcp` — MCP servers
 - Does this need any external APIs or services?
-- Does this need real-time updates (WebSocket events)?
+- Does this need real-time updates flowing from the pack to the dashboard?
 
 ### For each external API
 - What is the base URL?
@@ -103,3 +103,12 @@
 - What happens when external APIs are down? (graceful degradation, cached fallback, error)
 - What happens when the LLM is slow or unavailable?
 - Are there retry strategies needed?
+
+### Policy Card (governance)
+- What autonomy level does this pack need? `read_only` | `suggest` |
+  `act_with_approval` | `autonomous`
+- Which commands, if any, must escalate to a human before acting?
+- What is the data scope — `user` or `tenant`?
+- What is the narrowest set of permissions that covers every integration
+  named in Phase 3? (a pack's `permissions:` must be a subset of what its
+  policy allows)
