@@ -91,8 +91,8 @@ wins over this text: when in doubt, read it (see "Get more context").
    `reference/secrets`, `reference/configuration`, `architecture/security`,
    `concepts/building-methodology`, `guides/quickstart/first-pack`.
 5. **The CLI itself.** `huitzo --help`, `huitzo <group> <cmd> --help`, and `--output json` for
-   machine-readable results. Install: `curl -sSf https://install.huitzo.ai | sh` or
-   `brew install huitzo/tap/huitzo`.
+   machine-readable results. Install: `curl -sSf https://raw.githubusercontent.com/Huitzo-Inc/huitzo-launcher/main/install.sh | sh` or
+   `brew install Huitzo-Inc/tap/huitzo`.
 6. **Worked examples.** https://github.com/Huitzo-Inc/build-with-huitzo — runnable labs from a
    hello pack to full-stack, all testable offline.
 

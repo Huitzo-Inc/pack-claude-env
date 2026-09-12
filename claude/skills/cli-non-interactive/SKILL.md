@@ -14,8 +14,8 @@ the keyboard, output you can parse.
 ## Install
 
 ```bash
-curl -sSf https://install.huitzo.ai | sh     # Linux / WSL
-brew install huitzo/tap/huitzo               # macOS
+curl -sSf https://raw.githubusercontent.com/Huitzo-Inc/huitzo-launcher/main/install.sh | sh     # Linux / WSL
+brew install Huitzo-Inc/tap/huitzo               # macOS
 huitzo --version                             # verify
 ```
 

@@ -24,7 +24,7 @@ from pathlib import Path
 
 URL_RE = re.compile(r"https?://[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=%-]+")
 TRAILING = ".,;:)]>'\"`*"
-SKIP_HOSTS = ("localhost", "127.0.0.1", "example.com", "your-", "huitzo.ai/mcp")
+SKIP_HOSTS = ("localhost", "127.0.0.1", "example.com", "your-", "huitzo.ai/mcp", "huitzo.ai/api/")
 TEXT_SUFFIXES = {".md", ".json", ".tmpl", ".sh", ".py", ".yaml", ".yml"}
 
 

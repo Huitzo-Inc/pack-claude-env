@@ -43,8 +43,8 @@ The CLI copies `claude/` into the project's `.claude/` (filtered by profile) and
 next to it. Skills are available as `/<skill>`. Run `/huitzo-init` once to wire the project docs
 MCP server.
 
-Install the CLI: `curl -sSf https://install.huitzo.ai | sh` (Linux/WSL) or
-`brew install huitzo/tap/huitzo` (macOS). Docs: <https://docs.huitzo.ai/docs/cli/overview>.
+Install the CLI: `curl -sSf https://raw.githubusercontent.com/Huitzo-Inc/huitzo-launcher/main/install.sh | sh` (Linux/WSL) or
+`brew install Huitzo-Inc/tap/huitzo` (macOS). Docs: <https://docs.huitzo.ai/docs/cli/overview>.
 
 Pick one channel per project. Both together work but hooks would run twice.
 
