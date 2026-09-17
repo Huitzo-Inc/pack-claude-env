@@ -9,13 +9,8 @@ Description: Checks (and mechanically fixes) the Huitzo legal header on every
     Stdlib only, so it runs identically in the parent repo, in every submodule
     checkout (vendored copy), in CI, and in the nightly IP-compliance sweep.
 
-Implements:
-    - docs/governance/ip-protection.md#legal-header-standard
-    - docs/governance/ip-protection.md#enforcement-pipeline
-
 See Also:
-    - docs/governance/ip-protection.md#nightly-ip-compliance-sweep
-    - .claude/rules/legal-headers.md
+    - .claude/rules/legal-headers.md (the seeded rule this script enforces)
 
 Usage:
     check_legal_headers.py                    # full-tree check (+ repo checks)
