@@ -52,8 +52,8 @@ export function unmount(_container: HTMLElement): void {
 ```
 
 - **`HuitzoProvider` is mandatory.** Every hook in this package calls `useHuitzo()` internally, which throws `HuitzoError("useHuitzo must be used within <HuitzoProvider>")` when rendered outside one.
-- **The `.huitzo-dashboard` wrapper class is mandatory.** Brand tokens and `hz-*` primitives resolve under it; without it, `var(--color-*)` reads as nothing.
-- **Import `@huitzo/dashboard-sdk-react/styles` exactly once** (in `main.tsx`, mirrored in your dev entry). It is a separate subpath export (`dist/styles/tokens.css`), not part of the `index.ts` barrel.
+- **The `.huitzo-dashboard` wrapper class is mandatory.** It is the scope your own CSS hangs off — the CLI scaffold's `index.css` sets `font-family`/`line-height`/`color` on it and nests every `button`/`a` rule under it, so those rules style your tree and never the Hub shell. It is not where tokens come from: skip it and you lose your own base styles, not `var(--color-*)`.
+- **Import `@huitzo/dashboard-sdk-react/styles` exactly once** (in `main.tsx`, mirrored in your dev entry) — **this is what makes `var(--color-*)` resolve.** The stylesheet declares every token on `:root` inside `@layer huitzo-tokens`, so they apply document-wide, wrapper or not. It is a separate subpath export (`dist/styles/tokens.css`), not part of the `index.ts` barrel.
 
 ## `HuitzoMountContext`
 
@@ -322,7 +322,7 @@ function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
 | ❌ `fetch('/api/v1/commands/...')` directly | `useCommand` / `client.commands.execute()` |
 | ❌ Treating `useRealtime` as "needs a WebSocket" | It runs over Hub's per-mount event bus — no socket involved |
 | ❌ Rendering without `<HuitzoProvider>` | Every hook throws outside it — wrap in `mount()` |
-| ❌ Skipping the `.huitzo-dashboard` wrapper class | Tokens never resolve without it |
+| ❌ Skipping the `.huitzo-dashboard` wrapper class | Every rule you scoped under it stops matching — wrap the app (tokens come from the styles import) |
 | ❌ A global `button { }` / `a { }` selector | Scope under `.huitzo-dashboard` or use CSS Modules |
 | ❌ Assuming `useCommand.status` is 4-state (`idle\|loading\|success\|error`) | It is 5-state — `polling` exists for 202-receipt commands; check `isPolling` |
 | ❌ `{ name: 'upload', label: 'File', type: 'file' }` in a `Form` | `FormFieldSpec` has no `file` type — build your own upload UI |

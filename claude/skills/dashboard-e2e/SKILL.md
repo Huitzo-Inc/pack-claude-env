@@ -111,8 +111,8 @@ browser steps; otherwise the headless Vitest flow (A) is sufficient for CI.
 ## Notes
 
 - This is verification, not scaffolding — it does not modify source.
-- Both themes matter — re-run with `data-theme="light"` on the wrapper to
-  confirm the dashboard renders intentionally in light mode (see
-  `dashboard-design.md`).
+- Both themes matter — re-run with `data-theme="light"` on `<html>` (what the
+  dev server's theme toggle flips, see `/dashboard-dev`) to confirm the
+  dashboard renders intentionally in light mode (see `dashboard-design.md`).
 - Run this before publishing to catch lifecycle leaks that would otherwise
   surface as navigation bugs inside Hub.
