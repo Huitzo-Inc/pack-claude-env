@@ -63,9 +63,12 @@ export function unmount(_container: HTMLElement): void {
    It also owns the token lifecycle — it calls `context.getToken()` for you
    and re-syncs on rotation; do not call `getToken()` yourself outside your
    own request code.
-2. **`<div className="huitzo-dashboard">` wraps the app.** Brand tokens and
-   `hz-*` primitives resolve only under this class; theme switching
-   (dark/light) depends on it too.
+2. **`<div className="huitzo-dashboard">` wraps the app.** It is the scope
+   your own CSS hangs off (the scaffold's `index.css` targets it, so your
+   rules style your tree and never the Hub shell). It is not the token
+   mechanism: importing `@huitzo/dashboard-sdk-react/styles` once declares
+   every token on `:root` inside `@layer huitzo-tokens`, and theme switching
+   flips `data-theme="light"` on a parent (`<html>`), not on this wrapper.
 
 ## `HuitzoMountContext`
 

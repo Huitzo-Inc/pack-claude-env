@@ -66,8 +66,8 @@ rather than inventing new custom CSS.
 Three tiers. Always.
 
 1. **Eyebrow** — `<p className="hz-eyebrow">SECTION LABEL</p>` above the headline.
-2. **Headline** — semantic `<h1>` / `<h2>` with the brand font (inherits from
-   `.huitzo-dashboard`).
+2. **Headline** — semantic `<h1>` / `<h2>` with the brand font (inherited from
+   the `font-family` the scaffold's `index.css` sets on `.huitzo-dashboard`).
 3. **Body** — default paragraph; `var(--color-text-secondary)` for
    supporting copy.
 
@@ -94,7 +94,9 @@ everything.
 ## Theme awareness
 
 - The root component MUST wrap children in `<div className="huitzo-dashboard">`
-  — this scopes the brand tokens; without it they don't resolve.
+  — it scopes your own CSS so nothing leaks into the Hub host. Tokens resolve
+  from the one-time `@huitzo/dashboard-sdk-react/styles` import, which declares
+  them on `:root` inside `@layer huitzo-tokens`.
 - Every color must resolve via a token so it adapts to `data-theme="light"`
   automatically.
 - Test both themes — if something only looks right in dark, a hex color is
@@ -120,7 +122,7 @@ Never:
 - ❌ Author a hardcoded `box-shadow: 0 4px ...`. Use `--shadow-sm`/`-md` or rely on `hz-card`.
 - ❌ Render the AI-default landing page: a centered `<h1>` "Welcome to {dashboard-name}", one subtitle paragraph, and a blue gradient button. These rules exist to prevent exactly that.
 - ❌ Use `dangerouslySetInnerHTML` without sanitization.
-- ❌ Skip the `huitzo-dashboard` wrapper class — brand tokens will not resolve.
+- ❌ Skip the `huitzo-dashboard` wrapper class — your base styles (font, color, the scoped `button`/`a` rules) stop applying. (Leaking into the Hub is the *other* failure: dropping the `.huitzo-dashboard` prefix from your selectors.)
 - ❌ Reference `hz-arch` in any form — it ships no CSS.
 
 ## See also

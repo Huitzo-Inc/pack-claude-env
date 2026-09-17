@@ -171,6 +171,75 @@ def check_python(tmp: Path) -> list[str]:
     return [line for line in r.stdout.splitlines() if line.strip()]
 
 
+# Tokens the stylesheet must declare on `:root` inside the cascade layer. This
+# is the white-label mechanism, not a wording check: `@layer huitzo-tokens`
+# loses to the Hub's unlayered declarations of the same properties, and `:root`
+# is what makes them resolve document-wide. The `.huitzo-dashboard` wrapper is
+# a CSS-scoping hook for a dashboard's own styles — it declares no tokens, and
+# several docs used to claim it did.
+TOKEN_LAYER = "huitzo-tokens"
+LAYER_ROOT_TOKENS = {"--color-bg-primary", "--color-text-primary", "--color-accent", "--color-border"}
+
+
+def _strip_css_comments(css: str) -> str:
+    return re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+
+
+def _css_block(css: str, at: int) -> str | None:
+    """Body of the brace-balanced block opening at the first `{` at/after `at`."""
+    start = css.find("{", at)
+    if start < 0:
+        return None
+    depth = 0
+    for i in range(start, len(css)):
+        if css[i] == "{":
+            depth += 1
+        elif css[i] == "}":
+            depth -= 1
+            if depth == 0:
+                return css[start + 1 : i]
+    return None
+
+
+def check_token_mechanism(css_text: str) -> list[str]:
+    """Assert WHERE tokens are declared, so the docs that explain it stay true.
+
+    Goes red if the SDK ever moves tokens under `.huitzo-dashboard` (which
+    would make the wrapper load-bearing for `var(--color-*)`) or drops the
+    cascade layer (which would break Hub white-labeling).
+    """
+    problems: list[str] = []
+    css = _strip_css_comments(css_text)
+
+    layer = re.search(rf"@layer\s+{TOKEN_LAYER}\b", css)
+    if not layer:
+        return [f"tokens.css: no `@layer {TOKEN_LAYER}` block — white-label inheritance "
+                f"no longer works by layering; every doc explaining it is now wrong"]
+    layer_body = _css_block(css, layer.end())
+    if layer_body is None:
+        return [f"tokens.css: `@layer {TOKEN_LAYER}` block is unbalanced"]
+
+    root = re.search(r"(?:\A|[{};])\s*:root\s*\{", layer_body)
+    root_body = _css_block(layer_body, root.end() - 1) if root else None
+    if root_body is None:
+        problems.append(f"tokens.css: no `:root` rule inside `@layer {TOKEN_LAYER}` — tokens no "
+                        f"longer resolve document-wide")
+    else:
+        declared = set(re.findall(r"(--[a-zA-Z0-9-]+)\s*:", root_body))
+        missing = sorted(LAYER_ROOT_TOKENS - declared)
+        if missing:
+            problems.append(f"tokens.css: `:root` inside `@layer {TOKEN_LAYER}` no longer declares "
+                            f"{missing} — find where they moved before trusting the token docs")
+
+    for rule in re.finditer(r"(?:\A|[{};])\s*([^{}@;]*\.huitzo-dashboard[^{}@;]*)\{", css):
+        body = _css_block(css, rule.end() - 1) or ""
+        if re.search(r"--[a-zA-Z0-9-]+\s*:", body):
+            problems.append(f"tokens.css: rule `{rule.group(1).strip()}` declares custom properties "
+                            f"— the wrapper class is now load-bearing for tokens; docs that call it "
+                            f"a pure CSS-scoping hook must be rewritten")
+    return problems
+
+
 def check_npm(tmp: Path) -> list[str]:
     problems: list[str] = []
     if not shutil.which("npm"):
@@ -213,6 +282,7 @@ def check_npm(tmp: Path) -> list[str]:
                     leaked = sorted(NEVER_SHIPPED & shipped)
                     if leaked:
                         problems.append(f"classes assumed never-shipped now exist, update docs: {leaked}")
+                    problems.extend(check_token_mechanism(css_text))
                     extra = sorted(c for c in shipped - EXPECTED_HZ_CLASSES
                                    if not any(c == f or c.startswith(f + "__") for f in EXPECTED_HZ_FAMILIES))
                     if extra:

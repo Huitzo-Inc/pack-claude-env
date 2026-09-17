@@ -30,8 +30,9 @@ commands consumed, user interactions). **Missing** — stop and draft it first
 `src/main.tsx` exports exactly `mount(container, context)` and
 `unmount(container)`. `mount` MUST wrap the app in **`HuitzoProvider`** (every
 SDK hook throws outside it) and in **`<div className="huitzo-dashboard">`**
-(brand tokens don't resolve without it). Full field list and event vocabulary:
-`hub-contract.md`. Full hook/component/template signatures: the
+(the scope your own CSS hangs off; tokens come from the one-time
+`@huitzo/dashboard-sdk-react/styles` import). Full field list and event
+vocabulary: `hub-contract.md`. Full hook/component/template signatures: the
 `huitzo-dashboard-sdk` skill (preloaded).
 
 ## Choosing an approach
