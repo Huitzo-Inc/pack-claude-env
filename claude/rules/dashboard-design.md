@@ -94,9 +94,11 @@ everything.
 ## Theme awareness
 
 - The root component MUST wrap children in `<div className="huitzo-dashboard">`
-  — it scopes your own CSS so nothing leaks into the Hub host. Tokens resolve
-  from the one-time `@huitzo/dashboard-sdk-react/styles` import, which declares
-  them on `:root` inside `@layer huitzo-tokens`.
+  — it is the scope your own CSS hangs off (the scaffold's `index.css` sets
+  font/color on it and nests every `button`/`a` rule under it), so those rules
+  style your tree and never the Hub shell. Tokens resolve from the one-time
+  `@huitzo/dashboard-sdk-react/styles` import, which declares them on `:root`
+  inside `@layer huitzo-tokens`.
 - Every color must resolve via a token so it adapts to `data-theme="light"`
   automatically.
 - Test both themes — if something only looks right in dark, a hex color is

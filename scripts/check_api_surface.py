@@ -175,7 +175,7 @@ def check_python(tmp: Path) -> list[str]:
 # is the white-label mechanism, not a wording check: `@layer huitzo-tokens`
 # loses to the Hub's unlayered declarations of the same properties, and `:root`
 # is what makes them resolve document-wide. The `.huitzo-dashboard` wrapper is
-# a CSS-scoping hook for a dashboard's own styles — it declares no tokens, and
+# the CSS scope selector for a dashboard's own styles — it declares no tokens, and
 # several docs used to claim it did.
 TOKEN_LAYER = "huitzo-tokens"
 LAYER_ROOT_TOKENS = {"--color-bg-primary", "--color-text-primary", "--color-accent", "--color-border"}
@@ -236,7 +236,7 @@ def check_token_mechanism(css_text: str) -> list[str]:
         if re.search(r"--[a-zA-Z0-9-]+\s*:", body):
             problems.append(f"tokens.css: rule `{rule.group(1).strip()}` declares custom properties "
                             f"— the wrapper class is now load-bearing for tokens; docs that call it "
-                            f"a pure CSS-scoping hook must be rewritten")
+                            f"a pure CSS scope selector must be rewritten")
     return problems
 
 
