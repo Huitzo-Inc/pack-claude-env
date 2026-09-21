@@ -53,5 +53,8 @@ CI runs the same checks.
 
 1. Bump `version` in `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json`
    (they must match) and add a `CHANGELOG.md` entry.
-2. Merge to `main` — the CLI seeds from `main`, so `main` must always be green.
-3. Tag the plugin release: `claude plugin tag .`
+2. If a package version moved, update `VERSIONS` in `scripts/check_api_surface.py`
+   and the "Verified against" lines in `README.md` and
+   `claude/rules/00-huitzo-core.md` in the same commit.
+3. Merge to `main` — the CLI seeds from `main`, so `main` must always be green.
+4. Tag the plugin release: `claude plugin tag .`
