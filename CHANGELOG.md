@@ -3,6 +3,29 @@
 All notable changes to the Huitzo developer environment. Versions follow the
 plugin manifest (`.claude-plugin/plugin.json`).
 
+## 2.1.0 — 2026-09
+
+### Changed
+- `huitzo-dashboard-sdk` and the dashboard rules are verified against
+  `@huitzo/dashboard-sdk-react` 7.0.0, `@huitzo/dashboard-sdk` 0.7.0 and
+  `@huitzo/dashboard-primitives` 0.2.4.
+- Token handling: `HuitzoProvider` reads the token through a per-request
+  `getToken` accessor and never copies it at mount; standalone core clients
+  should pass `getToken` to `HuitzoClient`. In accessor mode `auth.refresh()`
+  and `auth.logout()` reject.
+- `useCommand`: documents the `poll` option (`CommandPollOptions`) for commands
+  that run longer than the 5 minute default budget, and that `execute()` now
+  resolves with the result (`Promise<T | undefined>`, never rejects).
+- `Form` template: the submit button renders inside the form after the last
+  field (`.hz-form__actions`).
+- `hz-form` primitive: `onSubmit` accepts `useCommand`'s `execute` as-is.
+- Mock contexts and E2E examples use `sdkVersion: '7.0.0'`.
+- `scripts/check_api_surface.py` now also checks the core package's exports.
+
+### Added
+- Anti-patterns: hand-rolled `client.tasks.poll` loops, and assigning
+  `execute` to a `Promise<void>` slot.
+
 ## 2.0.0 — 2026-09
 
 ### Added
