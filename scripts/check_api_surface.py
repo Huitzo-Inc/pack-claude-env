@@ -31,7 +31,7 @@ from pathlib import Path
 
 VERSIONS = {
     "huitzo-sdk": "1.7.0",
-    "@huitzo/dashboard-sdk-react": "6.0.0",
+    "@huitzo/dashboard-sdk-react": "7.0.0",
     "@huitzo/dashboard-sdk": "0.7.0",
 }
 
@@ -56,7 +56,7 @@ EXPECTED_REACT_EXPORTS = {
     "HuitzoProvider", "useHuitzo", "useCommand", "useStreamingCommand", "useHubContext", "useLocale",
     "useHubNavigation", "useRealtime", "useHubActions", "useHubBreadcrumbs", "usePacks",
     "useConnectionStatus", "DashboardTile", "DashboardInfoBlock", "TileGlyphIcon", "resolveTileIdentity",
-    "Dashboard", "Form", "TemplateFrame", "useTemplateCommand",
+    "Dashboard", "Form", "TemplateFrame", "useTemplateCommand", "CommandPollOptions",
 }
 
 # Core (@huitzo/dashboard-sdk) names the dashboard reference teaches for

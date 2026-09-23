@@ -8,7 +8,7 @@ developer and reviewer agents; safety hooks; and a project-docs MCP server. It i
 the `huitzo` CLI.
 
 Verified against `huitzo-sdk` 1.7.0 · `@huitzo/dashboard-sdk` 0.7.0 ·
-`@huitzo/dashboard-sdk-react` 6.0.0 · Claude Code 2.1.269 (path-scoped rules need 2.1.84 or later).
+`@huitzo/dashboard-sdk-react` 7.0.0 · Claude Code 2.1.269 (path-scoped rules need 2.1.84 or later).
 
 ## Install
 
@@ -63,7 +63,7 @@ worked examples). Everything else loads on demand.
 |---|---|---|
 | `huitzo-sdk` | huitzo-sdk 1.7.0 | `@command`, every `ctx.*` service with exact signatures, errors, testing patterns |
 | `huitzo-manifest` | huitzo-sdk 1.7.0 | `huitzo.yaml` schema v2, policy card, the 14 permission tokens, services, pipelines |
-| `huitzo-dashboard-sdk` | dashboard-sdk-react 6.0.0 | mount contract, `HuitzoMountContext`, all hooks, Templates, tokens and `hz-*` primitives |
+| `huitzo-dashboard-sdk` | dashboard-sdk-react 7.0.0 | mount contract, `HuitzoMountContext`, all hooks, Templates, tokens and `hz-*` primitives |
 | `cli-non-interactive` | CLI surface 2026-09 | every developer-facing `huitzo` command, JSON envelope, exit codes, agent recipes |
 | `huitzo-platform` | docs.huitzo.ai | REST API, API keys, task polling, hosted MCP, MCP inside packs, webhooks, secrets model |
 | `huitzo-methodology` | docs.huitzo.ai | deterministic-first design, command sizing, composition, testing pyramid, shipping |

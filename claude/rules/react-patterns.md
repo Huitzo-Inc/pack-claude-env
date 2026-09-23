@@ -41,6 +41,11 @@ A command on a medium/long queue dispatches a 202 receipt and the hook enters
 `loading` and `polling`, so check `isPolling` when you want to show a
 "queued" state instead of a generic spinner. Never assume a 4-state status.
 
+`execute()` resolves `Promise<T | undefined>` (the result, or `undefined` on
+error, abort, or supersession) and never rejects. For a command that can run
+past the 5 minute poll budget, pass `poll: { maxWaitMs }` (30 minute ceiling)
+rather than writing your own poll loop.
+
 Never use raw `fetch`, `axios`, or a direct API call — the SDK client handles
 auth, base URL, retries, and error mapping.
 
@@ -137,7 +142,7 @@ import { MyComponent } from './MyComponent';
 
 const mockContext: HuitzoMountContext = {
   apiUrl: 'http://localhost:8000', getToken: () => 'test-token', slug: 'test',
-  sdkVersion: '6.0.0',
+  sdkVersion: '7.0.0',
   user: { id: '1', email: 'a@b.com', roles: ['admin'], tenantId: 't1' },
   navigate: vi.fn(), navigateToHub: vi.fn(), navigateToDashboard: vi.fn(),
   showNotification: vi.fn(), on: vi.fn(() => vi.fn()), emit: vi.fn(),
@@ -169,7 +174,7 @@ module so `HuitzoProvider` and other hooks survive):
 vi.mock('@huitzo/dashboard-sdk-react', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@huitzo/dashboard-sdk-react')>()),
   useCommand: () => ({
-    execute: vi.fn(), reset: vi.fn(),
+    execute: vi.fn(async () => ({ result: 'mocked' })), reset: vi.fn(),   // resolves the result
     data: { result: 'mocked' }, loading: false, error: null,
     status: 'success', isIdle: false, isPolling: false, isSuccess: true, isError: false,
   }),

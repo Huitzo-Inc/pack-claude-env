@@ -5,7 +5,7 @@ commands run by the platform) and/or Dashboards (React micro-frontends loaded by
 This rule is the only always-on context; everything else loads on demand.
 
 Verified against: `huitzo-sdk` 1.7.0 · `@huitzo/dashboard-sdk` 0.7.0 ·
-`@huitzo/dashboard-sdk-react` 6.0.0 · Claude Code 2.1.269 (2026-09). The installed package always
+`@huitzo/dashboard-sdk-react` 7.0.0 · Claude Code 2.1.269 (2026-09). The installed package always
 wins over this text: when in doubt, read it (see "Get more context").
 
 ## Detect the project
