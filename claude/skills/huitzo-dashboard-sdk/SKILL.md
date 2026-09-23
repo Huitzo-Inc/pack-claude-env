@@ -3,17 +3,17 @@ name: huitzo-dashboard-sdk
 description: "@huitzo/dashboard-sdk-react hooks, components, templates, and tokens. Use when writing or reviewing Huitzo Dashboard UI. Not for pack commands (huitzo-sdk) or CLI usage (cli-non-interactive)."
 ---
 
-> Verified against @huitzo/dashboard-sdk-react 5.1.1 / @huitzo/dashboard-sdk 0.6.0 (2026-09).
+> Verified against @huitzo/dashboard-sdk-react 7.0.0 / @huitzo/dashboard-sdk 0.7.0 (2026-09).
 
 A Huitzo Dashboard is a React micro-frontend that Hub loads as an isolated module. This skill covers the client SDK a dashboard author writes against: the module contract, the React provider/hooks, the components and templates, and the shipped design tokens.
 
 ## Install
 
 ```bash
-npm install @huitzo/dashboard-sdk-react@^5.1.1
+npm install @huitzo/dashboard-sdk-react@^7.0.0
 ```
 
-`@huitzo/dashboard-sdk` (core, 0.6.0+) is a peer dependency and gets installed transitively — you rarely import it directly. Peer requirements: `@huitzo/dashboard-sdk >=0.6.0`, `react >=19.0.0`, `react-dom >=19.0.0`. Both packages are **runtime** dependencies (bundled into your `dist/main.js`, not shared with Hub).
+`@huitzo/dashboard-sdk` (core, 0.7.0+) is a peer dependency and gets installed transitively — you rarely import it directly. Peer requirements: `@huitzo/dashboard-sdk >=0.7.0`, `react >=19.0.0`, `react-dom >=19.0.0`. Both packages are **runtime** dependencies (bundled into your `dist/main.js`, not shared with Hub).
 
 ## Module contract
 
@@ -78,7 +78,7 @@ The vanilla object Hub passes to `mount()` (re-exported type alias for the core 
 
 **`getToken` supply-chain note:** it is a function, not a stored string, specifically so a bundled third-party dependency can't passively read the JWT off a plain object. Call it only from your own code path right before a request; never log it, store it, or pass it into a third-party callback. Audit your lockfile and consider `--ignore-scripts` for the same reason `HuitzoProvider` never exposes it as a prop.
 
-`HuitzoProvider` calls `context.getToken()` for you on mount and re-syncs only when the value changes (JWT rotation) — you should not call `getToken()` yourself unless you are talking to a non-SDK endpoint.
+`HuitzoProvider` builds its client with a per-request accessor, `getToken: () => context.getToken()`, so every SDK request reads Hub's current JWT and a rotated token is picked up without re-mounting. It never copies the token at mount. You should not call `getToken()` yourself unless you are talking to a non-SDK endpoint.
 
 ## `HuitzoProvider`
 
@@ -90,7 +90,7 @@ interface HuitzoProviderProps {
 }
 ```
 
-Creates one `HuitzoClient` on first render (later context changes are ignored — recreating the client would drop auth state). On mount, if a token is present, fetches the user, then the installed-packs list — sequentially, not in parallel; a 401 from the user fetch clears auth and calls `onAuthError`; any other fetch error is aggregated into `initError` (both errors, not just the last one).
+Creates one `HuitzoClient` on first render and never recreates it (`apiUrl` is read once). The token is the exception: the provider keeps a ref to the latest `context` (refreshed every render) and the client's accessor reads `getToken()` from it on every request, so both a rotated token and a replaced context object are honoured. On mount, if a token is present, fetches the user, then the installed-packs list — sequentially, not in parallel; a 401 from the user fetch clears auth and calls `onAuthError`; any other fetch error is aggregated into `initError` (both errors, not just the last one).
 
 `useHuitzo(): HuitzoContextValue` is the gateway hook every other hook calls internally:
 
@@ -121,7 +121,7 @@ Return shape:
 
 ```typescript
 {
-  execute: (args?: Record<string, unknown>) => Promise<void>;
+  execute: (args?: Record<string, unknown>) => Promise<T | undefined>;   // never rejects
   data: T | null;
   loading: boolean;                // true for BOTH "loading" AND "polling"
   error: Error | null;
@@ -133,7 +133,9 @@ Return shape:
 
 State machine: `idle --execute()--> loading`. A command backed by a fast queue resolves `loading --(200)--> success | error` directly. A medium/long-queue command instead gets a **202 dispatch receipt**, moves to `polling`, and the hook polls the task until it reaches a terminal state — `polling --terminal--> success | error`. A 202 receipt is never surfaced as `data` and never cached; only the resolved terminal result is. A task that finishes non-`success` raises a `CommandError` built from the task's error. `reset()` returns to `idle` from any state.
 
-Options: `onSuccess?`, `onError?`, `cacheTime?` (per-instance in-memory TTL, ms), `maxCacheSize?` (default `20`), `initialArgs?` (auto-execute on mount), `refetchInterval?` (`number | (data) => number`; pauses while the tab is hidden, fires one catch-up run on becoming visible again if due).
+`execute()` resolves with the result as soon as it is available (inline, polled, or from the `cacheTime` cache), so you can chain work without waiting for the next render's `data`. It never rejects: it resolves `undefined` when the call failed (the error still lands on `error` and `onError`) or was aborted or superseded by a newer `execute()`, `reset()`, or unmount; a superseded call never touches state. A command whose real result is `undefined` is indistinguishable from a failure by the return value alone, so read `status`/`error` when that matters. Typed overload: `execute: (args?: TInput) => Promise<TOutput | undefined>`. Where a slot is typed `(...) => Promise<void>`, wrap it: `async (args) => { await execute(args); }`.
+
+Options: `onSuccess?`, `onError?`, `cacheTime?` (per-instance in-memory TTL, ms), `maxCacheSize?` (default `20`), `initialArgs?` (auto-execute on mount), `refetchInterval?` (`number | (data) => number`; pauses while the tab is hidden, fires one catch-up run on becoming visible again if due), `poll?` (`CommandPollOptions`: `maxWaitMs?`, `initialIntervalMs?`, `maxIntervalMs?`, forwarded to `client.tasks.poll` for 202-receipt commands; defaults 5 minute budget, 500 ms first re-poll, 5 s backoff cap; core clamps `maxWaitMs` to 30 minutes; the hook's own abort signal always wins; read at call time, so an inline object literal is fine).
 
 ```typescript
 const { execute, data, loading, error, status, isPolling, reset } =
@@ -145,6 +147,14 @@ if (loading) return isPolling ? <QueuedState /> : <LoadingSpinner />;
 if (error) return <ErrorMessage error={error} onRetry={() => execute({ id })} />;
 if (!data) return <Empty />;
 return <ResultView data={data} />;
+```
+
+**Long-running commands.** A 202-receipt command whose pack timeout exceeds 5 minutes ends in a `TimeoutError` under the default poll budget. Raise it with `poll: { maxWaitMs }` (up to 30 minutes) instead of hand-rolling a loop over `client.tasks.poll`; unmount, `reset()`, and a newer `execute()` still cancel it:
+
+```typescript
+const { execute, isPolling } = useCommand<Report>('@scope/pack/process-package', {
+  poll: { maxWaitMs: 20 * 60_000, maxIntervalMs: 10_000 },
+});
 ```
 
 ### The rest of the hook set
@@ -202,9 +212,9 @@ type DashboardTileProps =
 `Dashboard` and `Form` are default, opinionated compositions over a frozen contract — use them for the common case; drop to `TemplateFrame` + your own layout when a page doesn't fit the "one command → one result" shape.
 
 - **`TemplateFrame`** — shared chrome: eyebrow, exactly one `h1`/`h2`, description, actions, status, body, evidence. Renders the `hz-tf__*` classes.
-- **`useTemplateCommand(ref, options?)`** — adapts the typed `useCommand` into a `TemplateCommandAdapter` (`{ status, data, error, execute, reset }`) that templates consume as their transport seam. `status` is a discriminated union: `{status:"idle"}` / `{status:"loading", progress?}` / `{status:"success"}` / `{status:"error", error}`.
+- **`useTemplateCommand(ref, { initialArgs?, poll? })`** — adapts the typed `useCommand` into a `TemplateCommandAdapter` (`{ status, data, error, execute, reset }`) that templates consume as their transport seam; `poll` is forwarded to `useCommand` unchanged. `TemplateCommandAdapter.execute` stays `(args?) => Promise<void>` (the adapter wraps `useCommand`'s result-returning `execute`), so a hand-built adapter must return `Promise<void>` too. `status` is a discriminated union: `{status:"idle"}` / `{status:"loading", progress?}` / `{status:"success"}` / `{status:"error", error}`.
 - **`Dashboard`** — result-rendering template: `title`, `eyebrow?`, either a typed `command` (`CommandRef`) or a hand-built `adapter`, `sections?` (`ResultSection[]` or a function of the result), `evidence?`, `primaryAction?`.
-- **`Form`** — `fields: FormFieldFor<TValues>[]`, `validation?`, `defaultValues?`, `toArgs?` (required when your form values don't match the command's input shape), `customField?` slot.
+- **`Form`** — `fields: FormFieldFor<TValues>[]`, `validation?`, `defaultValues?`, `toArgs?` (required when your form values don't match the command's input shape), `customField?` slot. The submit button renders inside the `<form>` after the last field, in a `.hz-form__actions` row (not in `TemplateFrame`'s actions region), so keyboard focus reaches every field before Submit; DOM order is header, status, form, evidence. `Dashboard` is unchanged.
 - **`FormFieldSpec`** types: `text | email | password | textarea | number | select` — **no `file` type** (deferred pending an upload/security gate; build your own upload flow outside `Form` if you need one).
 - A custom `Form` field (`customField` slot) receives `{ field, value, error?, setValue, fieldId, describedById? }` — put `fieldId` on the control you want `Form`'s own generated `<label>` to point at.
 
@@ -215,8 +225,8 @@ Use `Dashboard`/`Form` when your page is "run a command, show/collect structured
 `@huitzo/dashboard-sdk`'s `HuitzoClient` is what `HuitzoProvider` wraps; use it directly outside React (e.g. a Node script or a non-React micro-frontend):
 
 ```typescript
-const client = new HuitzoClient({ apiUrl, timeout: 60_000 });
-client.setToken(getToken());
+// Preferred: a per-request accessor, so a rotated token is always used
+const client = new HuitzoClient({ apiUrl, timeout: 60_000, getToken: () => readCurrentToken() });
 
 const result = await client.commands.execute('@scope/pack/command', args);
 if (isCommandReceipt(result)) {
@@ -228,7 +238,9 @@ if (isCommandReceipt(result)) {
 
 - `client.commands.execute<T>(namespace, args?, {timeout?, signal?})` returns `CommandResult<T> | CommandReceipt` — narrow with `isCommandReceipt()` before reading `.result`.
 - `client.tasks.get/cancel/poll(taskId, options?)` — `poll` options: `initialIntervalMs` (default 500), `maxIntervalMs` (default 5000), `maxWaitMs` (default 300 000, hard ceiling 1 800 000). `NotFoundError`/`AuthorizationError`/`TaskExpiredError`/`CancelledError` are terminal and never retried.
+- Token: `getToken?: TokenAccessor` (`() => string | undefined`) is called on every request and takes precedence over `client.setToken()`. An empty or `undefined` return (or a throwing accessor) sends no `Authorization` header. In accessor mode the caller owns the token lifetime: `client.auth.refresh()` and `client.auth.logout()` reject with a `HuitzoError` whose `code` is `ErrorCode.AUTHENTICATION_FAILED`, and `client.auth.isAuthenticated()` reflects the accessor's current value (an empty-string token is never authenticated, in any mode). `client.setToken(accessToken)` remains for a fixed token that you manage yourself.
 - `client.packs.list()` — `PackInfo[]`.
+- Other core exports worth knowing: `isTerminalTaskStatus(status)` (true for `success`/`failure`/`timeout`/`revoked`), `ErrorCode` (the const map of codes behind `HuitzoError.code`), and the `TokenAccessor` and `PollTaskOptions` types.
 - Error hierarchy (all extend `HuitzoError`): `AuthenticationError`, `AuthorizationError`, `NotFoundError`, `ValidationError`, `TimeoutError`, `RateLimitError`, `CancelledError`, `NetworkError`, `CommandError`, `TaskExpiredError`, `InternalError`, `IntegrationError`, `ServiceUnavailableError`.
 
 ## Styles: tokens and `hz-*` primitives
@@ -270,11 +282,11 @@ Dark is the default (`:root`); light overrides apply under `[data-theme="light"]
 | Inline | `.hz-kbd`, `.hz-code` |
 | `TemplateFrame` chrome (5.1.0+) | `.hz-tf` + `__header`, `__eyebrow`, `__title`, `__description`, `__actions`, `__status`, `__body`, `__evidence`, `__evidence-link`, `__evidence-meta` |
 | `Dashboard` template (5.1.0+) | `.hz-dashboard__content`, `__section`, `__section-title`, `__metrics`, `__metric`, `__label`, `__value`, `__detail`, `__table-wrap`, `__table`, `__list`, `__notice`, `__details`, `__empty` |
-| `Form` template (5.1.0+) | `.hz-form` (root) + `__field`, `__description`, `__error`, `__submit` |
+| `Form` template (5.1.0+) | `.hz-form` (root) + `__field`, `__description`, `__error`, `__actions` (7.0.0+), `__submit` |
 
 ❌ **`hz-arch` (with `__chip`, `__dot`, `__label`) does not exist.** No CSS ships for it in this stylesheet — do not reference it for architecture diagrams or anything else; build a layout with `hz-card`/`hz-rail`/plain CSS instead.
 
-A separate, differently-distributed package, `@huitzo/dashboard-primitives` (0.2.3), ships a shadcn/ui-style **copy-in** component registry (`hz-btn`, `hz-card`, `hz-chart`, `hz-form`, `hz-stat`, `hz-stream`, `hz-table` as real `.tsx`+`.module.css` source, not npm imports) — installed per-primitive into your `src/primitives/` via the CLI's `huitzo primitives` command group (`list`/`add`/`sync`/`diff`), with SHA-256-verified source. It is independent of the CSS-class primitives above; the two use overlapping names for related but distinct things (one is a plain class you add to a `<div>`, the other is a component file that lands in your repo).
+A separate, differently-distributed package, `@huitzo/dashboard-primitives` (0.2.4), ships a shadcn/ui-style **copy-in** component registry (`hz-btn`, `hz-card`, `hz-chart`, `hz-form`, `hz-stat`, `hz-stream`, `hz-table` as real `.tsx`+`.module.css` source, not npm imports) — installed per-primitive into your `src/primitives/` via the CLI's `huitzo primitives` command group (`list`/`add`/`sync`/`diff`), with SHA-256-verified source. It is independent of the CSS-class primitives above; the two use overlapping names for related but distinct things (one is a plain class you add to a `<div>`, the other is a component file that lands in your repo). The `hz-form` primitive's `onSubmit` is typed `(values) => unknown`, so `onSubmit={execute}` from `useCommand` typechecks; a copy installed before 0.2.4 declares `void | Promise<void>` and needs the same one-line change (or a re-install) when you move to `@huitzo/dashboard-sdk-react` 7.
 
 ## Dev harness and build contract
 
@@ -325,6 +337,8 @@ function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
 | ❌ Skipping the `.huitzo-dashboard` wrapper class | Every rule you scoped under it stops matching — wrap the app (tokens come from the styles import) |
 | ❌ A global `button { }` / `a { }` selector | Scope under `.huitzo-dashboard` or use CSS Modules |
 | ❌ Assuming `useCommand.status` is 4-state (`idle\|loading\|success\|error`) | It is 5-state — `polling` exists for 202-receipt commands; check `isPolling` |
+| ❌ A `while` loop over `client.tasks.poll`/`tasks.get` to outlast the 5 minute default | `useCommand(id, { poll: { maxWaitMs } })` (30 minute ceiling) |
+| ❌ `const run: (a: Args) => Promise<void> = execute;` | `execute` resolves `Promise<T \| undefined>`; wrap it: `async (a) => { await execute(a); }` |
 | ❌ `{ name: 'upload', label: 'File', type: 'file' }` in a `Form` | `FormFieldSpec` has no `file` type — build your own upload UI |
 
 ## Read more

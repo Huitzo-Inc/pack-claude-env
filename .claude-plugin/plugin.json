@@ -1,7 +1,7 @@
 {
   "name": "huitzo",
   "displayName": "Huitzo Developer Environment",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Build Intelligence Packs and Dashboards on the Huitzo platform: SDK, manifest, CLI, platform API/MCP and dashboard SDK references, docs-first workflow skills, developer/reviewer agents, safety hooks and a project-docs MCP server.",
   "author": {
     "name": "Huitzo Inc.",

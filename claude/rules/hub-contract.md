@@ -60,9 +60,10 @@ export function unmount(_container: HTMLElement): void {
 
 1. **`HuitzoProvider` wraps the tree.** Every SDK hook (`useCommand`,
    `useHubContext`, `useHubNavigation`, ...) throws if rendered outside it.
-   It also owns the token lifecycle — it calls `context.getToken()` for you
-   and re-syncs on rotation; do not call `getToken()` yourself outside your
-   own request code.
+   It also owns the token lifecycle: its client calls `context.getToken()`
+   on every request, so Hub's JWT rotation is picked up without a re-mount
+   (the token is never copied at mount). Do not call `getToken()` yourself
+   outside your own request code.
 2. **`<div className="huitzo-dashboard">` wraps the app.** It is the scope
    your own CSS hangs off (the scaffold's `index.css` targets it, so your
    rules style your tree and never the Hub shell). It is not the token

@@ -10,7 +10,7 @@
       "name": "huitzo",
       "source": "./",
       "description": "Huitzo developer environment: SDK/CLI/platform references, docs-first workflow skills, developer and reviewer agents, safety hooks, project-docs MCP.",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "category": "development",
       "keywords": ["huitzo", "intelligence-packs", "dashboards", "sdk", "mcp"],
       "homepage": "https://docs.huitzo.ai/docs/",

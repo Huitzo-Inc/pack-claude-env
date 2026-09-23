@@ -31,8 +31,8 @@ from pathlib import Path
 
 VERSIONS = {
     "huitzo-sdk": "1.7.0",
-    "@huitzo/dashboard-sdk-react": "5.1.1",
-    "@huitzo/dashboard-sdk": "0.6.0",
+    "@huitzo/dashboard-sdk-react": "7.0.0",
+    "@huitzo/dashboard-sdk": "0.7.0",
 }
 
 # Exact hz-* class set the dashboard reference teaches. Anything the stylesheet
@@ -56,7 +56,15 @@ EXPECTED_REACT_EXPORTS = {
     "HuitzoProvider", "useHuitzo", "useCommand", "useStreamingCommand", "useHubContext", "useLocale",
     "useHubNavigation", "useRealtime", "useHubActions", "useHubBreadcrumbs", "usePacks",
     "useConnectionStatus", "DashboardTile", "DashboardInfoBlock", "TileGlyphIcon", "resolveTileIdentity",
-    "Dashboard", "Form", "TemplateFrame", "useTemplateCommand",
+    "Dashboard", "Form", "TemplateFrame", "useTemplateCommand", "CommandPollOptions",
+}
+
+# Core (@huitzo/dashboard-sdk) names the dashboard reference teaches for
+# non-React use and error handling.
+EXPECTED_CORE_EXPORTS = {
+    "HuitzoClient", "HuitzoError", "ErrorCode", "isCommandReceipt", "isTerminalTaskStatus",
+    "TasksApi", "TaskExpiredError", "CommandError", "AuthenticationError",
+    "HuitzoClientOptions", "TokenAccessor", "PollTaskOptions",
 }
 
 PY_ASSERTIONS = r'''
@@ -253,21 +261,23 @@ def check_npm(tmp: Path) -> list[str]:
         tgz = tmp / r.stdout.strip().splitlines()[-1]
         with tarfile.open(tgz) as tf:
             names = tf.getnames()
+            label = "react package" if pkg.endswith("react") else "core package"
+            expected = EXPECTED_REACT_EXPORTS if pkg.endswith("react") else EXPECTED_CORE_EXPORTS
+            dts = [n for n in names if n.endswith("index.d.ts") or n.endswith("index.d.mts")]
+            if not dts:
+                problems.append(f"{label}: no index.d.ts in tarball")
+            else:
+                text = tf.extractfile(dts[0]).read().decode("utf-8", "replace")
+                exported = set(re.findall(r"\b(?:export\s+(?:declare\s+)?(?:function|const|class|type|interface)\s+|\bexport\s*\{[^}]*\b)([A-Za-z_][A-Za-z0-9_]*)", text))
+                # export { a, b as c } lists — collect every identifier inside export braces
+                for block in re.findall(r"export\s*\{([^}]*)\}", text):
+                    for ident in re.findall(r"([A-Za-z_][A-Za-z0-9_]*)\s*(?:,|$|as)", block):
+                        exported.add(ident)
+                missing = sorted(expected - exported)
+                if missing:
+                    problems.append(f"{label}: documented exports not found in d.ts: {missing}")
             if pkg.endswith("react"):
-                dts = [n for n in names if n.endswith("index.d.ts") or n.endswith("index.d.mts")]
                 css = [n for n in names if n.endswith("tokens.css")]
-                if not dts:
-                    problems.append("react package: no index.d.ts in tarball")
-                else:
-                    text = tf.extractfile(dts[0]).read().decode("utf-8", "replace")
-                    exported = set(re.findall(r"\b(?:export\s+(?:declare\s+)?(?:function|const|class|type|interface)\s+|\bexport\s*\{[^}]*\b)([A-Za-z_][A-Za-z0-9_]*)", text))
-                    # export { a, b as c } lists — collect every identifier inside export braces
-                    for block in re.findall(r"export\s*\{([^}]*)\}", text):
-                        for ident in re.findall(r"([A-Za-z_][A-Za-z0-9_]*)\s*(?:,|$|as)", block):
-                            exported.add(ident)
-                    missing = sorted(EXPECTED_REACT_EXPORTS - exported)
-                    if missing:
-                        problems.append(f"react package: documented exports not found in d.ts: {missing}")
                 if not css:
                     problems.append("react package: no tokens.css in tarball")
                 else:
