@@ -45,7 +45,7 @@ const mockContext: HuitzoMountContext = {
   apiUrl: 'http://localhost:8000',
   getToken: () => 'test-token',
   slug: 'test',
-  sdkVersion: '5.1.1',
+  sdkVersion: '6.0.0',
   user: { id: '1', email: 'a@b.com', roles: ['admin'], tenantId: 't1' },
   navigate: () => {}, navigateToHub: () => {}, navigateToDashboard: () => {},
   showNotification: () => {}, on: () => () => {}, emit: () => {},

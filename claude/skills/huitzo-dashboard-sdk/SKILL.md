@@ -3,17 +3,17 @@ name: huitzo-dashboard-sdk
 description: "@huitzo/dashboard-sdk-react hooks, components, templates, and tokens. Use when writing or reviewing Huitzo Dashboard UI. Not for pack commands (huitzo-sdk) or CLI usage (cli-non-interactive)."
 ---
 
-> Verified against @huitzo/dashboard-sdk-react 5.1.1 / @huitzo/dashboard-sdk 0.6.0 (2026-09).
+> Verified against @huitzo/dashboard-sdk-react 6.0.0 / @huitzo/dashboard-sdk 0.7.0 (2026-09).
 
 A Huitzo Dashboard is a React micro-frontend that Hub loads as an isolated module. This skill covers the client SDK a dashboard author writes against: the module contract, the React provider/hooks, the components and templates, and the shipped design tokens.
 
 ## Install
 
 ```bash
-npm install @huitzo/dashboard-sdk-react@^5.1.1
+npm install @huitzo/dashboard-sdk-react@^6.0.0
 ```
 
-`@huitzo/dashboard-sdk` (core, 0.6.0+) is a peer dependency and gets installed transitively — you rarely import it directly. Peer requirements: `@huitzo/dashboard-sdk >=0.6.0`, `react >=19.0.0`, `react-dom >=19.0.0`. Both packages are **runtime** dependencies (bundled into your `dist/main.js`, not shared with Hub).
+`@huitzo/dashboard-sdk` (core, 0.7.0+) is a peer dependency and gets installed transitively — you rarely import it directly. Peer requirements: `@huitzo/dashboard-sdk >=0.7.0`, `react >=19.0.0`, `react-dom >=19.0.0`. Both packages are **runtime** dependencies (bundled into your `dist/main.js`, not shared with Hub).
 
 ## Module contract
 
@@ -78,7 +78,7 @@ The vanilla object Hub passes to `mount()` (re-exported type alias for the core 
 
 **`getToken` supply-chain note:** it is a function, not a stored string, specifically so a bundled third-party dependency can't passively read the JWT off a plain object. Call it only from your own code path right before a request; never log it, store it, or pass it into a third-party callback. Audit your lockfile and consider `--ignore-scripts` for the same reason `HuitzoProvider` never exposes it as a prop.
 
-`HuitzoProvider` calls `context.getToken()` for you on mount and re-syncs only when the value changes (JWT rotation) — you should not call `getToken()` yourself unless you are talking to a non-SDK endpoint.
+`HuitzoProvider` builds its client with a per-request accessor, `getToken: () => context.getToken()`, so every SDK request reads Hub's current JWT and a rotated token is picked up without re-mounting. It never copies the token at mount. You should not call `getToken()` yourself unless you are talking to a non-SDK endpoint.
 
 ## `HuitzoProvider`
 
@@ -90,7 +90,7 @@ interface HuitzoProviderProps {
 }
 ```
 
-Creates one `HuitzoClient` on first render (later context changes are ignored — recreating the client would drop auth state). On mount, if a token is present, fetches the user, then the installed-packs list — sequentially, not in parallel; a 401 from the user fetch clears auth and calls `onAuthError`; any other fetch error is aggregated into `initError` (both errors, not just the last one).
+Creates one `HuitzoClient` on first render and never recreates it (`apiUrl` is read once). The token is the exception: the provider keeps a ref to the latest `context` (refreshed every render) and the client's accessor reads `getToken()` from it on every request, so both a rotated token and a replaced context object are honoured. On mount, if a token is present, fetches the user, then the installed-packs list — sequentially, not in parallel; a 401 from the user fetch clears auth and calls `onAuthError`; any other fetch error is aggregated into `initError` (both errors, not just the last one).
 
 `useHuitzo(): HuitzoContextValue` is the gateway hook every other hook calls internally:
 
@@ -215,8 +215,8 @@ Use `Dashboard`/`Form` when your page is "run a command, show/collect structured
 `@huitzo/dashboard-sdk`'s `HuitzoClient` is what `HuitzoProvider` wraps; use it directly outside React (e.g. a Node script or a non-React micro-frontend):
 
 ```typescript
-const client = new HuitzoClient({ apiUrl, timeout: 60_000 });
-client.setToken(getToken());
+// Preferred: a per-request accessor, so a rotated token is always used
+const client = new HuitzoClient({ apiUrl, timeout: 60_000, getToken: () => readCurrentToken() });
 
 const result = await client.commands.execute('@scope/pack/command', args);
 if (isCommandReceipt(result)) {
@@ -228,7 +228,9 @@ if (isCommandReceipt(result)) {
 
 - `client.commands.execute<T>(namespace, args?, {timeout?, signal?})` returns `CommandResult<T> | CommandReceipt` — narrow with `isCommandReceipt()` before reading `.result`.
 - `client.tasks.get/cancel/poll(taskId, options?)` — `poll` options: `initialIntervalMs` (default 500), `maxIntervalMs` (default 5000), `maxWaitMs` (default 300 000, hard ceiling 1 800 000). `NotFoundError`/`AuthorizationError`/`TaskExpiredError`/`CancelledError` are terminal and never retried.
+- Token: `getToken?: TokenAccessor` (`() => string | undefined`) is called on every request and takes precedence over `client.setToken()`. An empty or `undefined` return (or a throwing accessor) sends no `Authorization` header. In accessor mode the caller owns the token lifetime: `client.auth.refresh()` and `client.auth.logout()` reject with a `HuitzoError` whose `code` is `ErrorCode.AUTHENTICATION_FAILED`, and `client.auth.isAuthenticated()` reflects the accessor's current value (an empty-string token is never authenticated, in any mode). `client.setToken(accessToken)` remains for a fixed token that you manage yourself.
 - `client.packs.list()` — `PackInfo[]`.
+- Other core exports worth knowing: `isTerminalTaskStatus(status)` (true for `success`/`failure`/`timeout`/`revoked`), `ErrorCode` (the const map of codes behind `HuitzoError.code`), and the `TokenAccessor` and `PollTaskOptions` types.
 - Error hierarchy (all extend `HuitzoError`): `AuthenticationError`, `AuthorizationError`, `NotFoundError`, `ValidationError`, `TimeoutError`, `RateLimitError`, `CancelledError`, `NetworkError`, `CommandError`, `TaskExpiredError`, `InternalError`, `IntegrationError`, `ServiceUnavailableError`.
 
 ## Styles: tokens and `hz-*` primitives
