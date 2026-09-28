@@ -3,6 +3,22 @@
 All notable changes to the Huitzo developer environment. Versions follow the
 plugin manifest (`.claude-plugin/plugin.json`).
 
+## 2.1.1 — 2026-09
+
+### Fixed
+- `dashboard-manifest` rule: `min_sdk_version` is the Hub's mount-contract
+  version (`HuitzoContext`, versioned with core `@huitzo/dashboard-sdk`), not
+  the `@huitzo/dashboard-sdk-react` version. Following the old wording
+  (`min_sdk_version: "7.0.0"`) made the Hub refuse to mount the dashboard with
+  "Incompatible Dashboard". The rule also no longer claims a `1.0.0` default.
+
+### Added
+- `dashboard-manifest` rule: "Catalog listing" section. The Hub fills the
+  catalog page from `huitzo-dashboard.json` at the bundle root (ship it via
+  `public/`), not from the YAML; invalid `listing` blocks are dropped
+  silently; asset type, size and SVG limits. The rule now also loads when
+  editing `public/huitzo-dashboard.json`.
+
 ## 2.1.0 — 2026-09
 
 ### Changed
