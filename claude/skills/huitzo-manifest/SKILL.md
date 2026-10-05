@@ -1,6 +1,6 @@
 ---
 name: huitzo-manifest
-description: huitzo.yaml manifest schema v2: sections, permissions, policy, validation. Use editing huitzo.yaml or debugging validate/sync errors. Not ctx API (huitzo-sdk) or dashboards (huitzo-dashboard-sdk).
+description: "huitzo.yaml manifest schema v2: sections, permissions, policy, validation. Use editing huitzo.yaml or debugging validate/sync errors. Not ctx API (huitzo-sdk) or dashboards (huitzo-dashboard-sdk)."
 ---
 
 > Verified against huitzo-sdk 1.7.0 (2026-09).
