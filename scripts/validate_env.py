@@ -19,7 +19,8 @@ Description: Structural, accuracy and information-boundary validator for the
       5. Information boundary: no private-repo links, retired vocabulary, internal
          process terms or monorepo-internal doc paths.
       6. docs.huitzo.ai links only point at pages in the public inventory.
-      7. Stale versions and known-wrong API tokens are absent.
+      7. Stale versions and known-wrong API tokens are absent, and no example
+         teaches a model-provider host or an untyped dict return as correct.
 """
 
 from __future__ import annotations
@@ -85,6 +86,22 @@ STALE_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("hz-arch primitive (never shipped)", re.compile(r"hz-arch\b")),
     ("builtin-shadowing error name (real: CommandTimeoutError / PackPermissionError)", re.compile(r"(?<![A-Za-z.])(?<!asyncio\.)(TimeoutError|PermissionError)\b")),
     ("mcpServers in settings.json", re.compile(r'"mcpServers"')),
+    # Run-view authoring: the environment must not teach either shape as correct.
+    (
+        "model-provider host (model calls go through ctx.llm, never ctx.http)",
+        re.compile(
+            r"(api\.openai\.com|[a-z0-9-]+\.openai\.azure\.com|api\.anthropic\.com"
+            r"|generativelanguage\.googleapis\.com|aiplatform\.googleapis\.com"
+            r"|bedrock-runtime\.[a-z0-9-]+\.amazonaws\.com|api\.mistral\.ai|api\.cohere\.(com|ai)"
+            r"|api\.groq\.com|api\.together\.(xyz|ai)|api\.fireworks\.ai|api\.deepseek\.com"
+            r"|api\.perplexity\.ai|api\.x\.ai|openrouter\.ai)",
+            re.I,
+        ),
+    ),
+    (
+        "command example returning an untyped dict (default is a typed return model)",
+        re.compile(r"ctx:\s*Context\)\s*->\s*dict\b"),
+    ),
 ]
 
 FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*\n", re.S)

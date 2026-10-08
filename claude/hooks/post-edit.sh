@@ -10,6 +10,10 @@
 #   (c) a hardcoded hex/rgb()/hsl() color in dashboard .tsx/.css
 #   (d) dangerouslySetInnerHTML
 #   (e) `ruff check` findings, when ruff is on PATH, for a .py file
+#   (f) a model-provider host in a .py file that uses ctx.http (model calls
+#       go through ctx.llm; through ctx.http they never reach the run page)
+#   (g) more than one ctx.commands.execute call in a .py file (a multi-step
+#       flow belongs in a pipeline; nested calls are not recorded as steps)
 #
 # No network. Bash 3.2 compatible. Missing file or no Huitzo project marker
 # → silent exit 0.
@@ -63,6 +67,30 @@ case "$REL" in
     if grep -q 'ctx\.llm\.' "$FILE_PATH" 2>/dev/null && grep -Eq '\bmodel[[:space:]]*=' "$FILE_PATH" 2>/dev/null; then
       printf 'post-edit: %s calls ctx.llm.* with model= — use profile= instead (there is no model= kwarg)\n' \
         "$REL" >&2
+    fi
+    ;;
+esac
+
+# --- (f) model-provider host in a file that uses ctx.http ---------------------
+# Dots are escaped on purpose: the pattern matches host literals only, and the
+# environment validator does not read this line as a host literal itself.
+HZ_MODEL_HOST_RE='(api\.openai\.com|[a-z0-9-]+\.openai\.azure\.com|api\.anthropic\.com|generativelanguage\.googleapis\.com|aiplatform\.googleapis\.com|bedrock-runtime\.[a-z0-9-]+\.amazonaws\.com|api\.mistral\.ai|api\.cohere\.(com|ai)|api\.groq\.com|api\.together\.(xyz|ai)|api\.fireworks\.ai|api\.deepseek\.com|api\.perplexity\.ai|api\.x\.ai|openrouter\.ai)'
+case "$REL" in
+  *.py)
+    if grep -q 'ctx\.http\.' "$FILE_PATH" 2>/dev/null && grep -Eiq "$HZ_MODEL_HOST_RE" "$FILE_PATH" 2>/dev/null; then
+      printf 'post-edit: %s names a model-provider host and uses ctx.http — call models through ctx.llm (profile=) only; a model call through ctx.http is invisible on the run page\n' \
+        "$REL" >&2
+    fi
+    ;;
+esac
+
+# --- (g) more than one ctx.commands.execute call ------------------------------
+case "$REL" in
+  *.py)
+    EXEC_CALLS="$(grep -v '^[[:space:]]*#' "$FILE_PATH" 2>/dev/null | grep -c 'ctx\.commands\.execute')"
+    if [ "${EXEC_CALLS:-0}" -gt 1 ]; then
+      printf 'post-edit: %s has %s ctx.commands.execute calls — a multi-step flow belongs in a pipeline (pipelines: in huitzo.yaml, one stage per step); nested calls are not recorded as steps on the run page\n' \
+        "$REL" "$EXEC_CALLS" >&2
     fi
     ;;
 esac
