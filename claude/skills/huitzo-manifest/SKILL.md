@@ -250,9 +250,11 @@ order, labelled with the stage `name`, with the model calls that stage made.
 - `huitzo pack validate` reports a stage ref that names no command in this
   pack, and a stage whose return model does not fit the next stage's args
   model. Both are warnings, and `--strict` turns warnings into failures, so
-  run `huitzo pack validate --strict` before publishing. Cross-pack refs and
-  the stages around a parallel block's joiner are checked only when the
-  pipeline runs; cover them with a stage-chain test.
+  run `huitzo pack validate --strict` before publishing. The stage
+  after a parallel block is checked against the joiner's return model. Not
+  checked: a reference to another pack's command, the link into a parallel
+  block, and the link out of a streaming stage. Those are checked only when
+  the pipeline runs; cover them with a stage-chain test.
 
 ```yaml
 pipelines:

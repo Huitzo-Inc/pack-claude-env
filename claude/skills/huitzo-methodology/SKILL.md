@@ -118,9 +118,11 @@ shape of the pack decides what a reader can see. Eight rules:
    an args model and a return model, and have each return model carry forward
    everything later stages need. `huitzo pack validate --strict` fails on a
    stage ref that names no command in the pack and on a return model that
-   does not fit the next stage's args model. It does not check refs into
-   another pack or the stages around a parallel block, so the pack's tests
-   still run the chain (the `testing` rule has the pattern).
+   does not fit the next stage's args model. The stage after a
+   parallel block is checked against the joiner's return model. Not checked:
+   a reference to another pack's command, the link into a parallel block, and
+   the link out of a streaming stage, so the pack's tests still run the chain
+   (the `testing` rule has the pattern).
 7. **Check caller input before the pipeline when the error type matters.** A
    stage that raises reaches the caller as `PipelineError`, not as the
    stage's own error. If the caller should get a `ValidationError` for a bad
