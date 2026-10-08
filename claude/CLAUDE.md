@@ -13,8 +13,9 @@ React). The Huitzo developer environment lives in `.claude/`:
   `/cli-non-interactive`, `/huitzo-platform`, `/huitzo-methodology`).
 - `.claude/agents/` — `pack-developer`, `pack-reviewer`, `dashboard-developer`,
   `dashboard-reviewer`, `docs-writer`, `spec-architect`.
-- `.claude/hooks/` — session context, secrets scan, traceability nudges (active only in Huitzo
-  projects) and `docs-mcp.sh`, the launcher for this project's documentation MCP server.
+- `.claude/hooks/` — session context, secrets scan, traceability and run-view authoring nudges
+  (active only in Huitzo projects) and `docs-mcp.sh`, the launcher for this project's
+  documentation MCP server.
 
 Project-specific instructions belong below this line or in `CLAUDE.local.md`; the environment
 files above are replaced when the environment is updated. Run `/huitzo-init` after cloning to

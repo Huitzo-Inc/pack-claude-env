@@ -24,7 +24,9 @@ from pathlib import Path
 
 URL_RE = re.compile(r"https?://[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=%-]+")
 TRAILING = ".,;:)]>'\"`*"
-SKIP_HOSTS = ("localhost", "127.0.0.1", "example.com", "your-", "huitzo.ai/mcp", "huitzo.ai/api/")
+# api.openai.com appears only in deliberate "do not write this" examples (model
+# calls go through ctx.llm, never ctx.http); it is not a link to follow.
+SKIP_HOSTS = ("localhost", "127.0.0.1", "example.com", "your-", "huitzo.ai/mcp", "huitzo.ai/api/", "api.openai.com")
 TEXT_SUFFIXES = {".md", ".json", ".tmpl", ".sh", ".py", ".yaml", ".yml"}
 
 

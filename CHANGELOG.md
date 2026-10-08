@@ -3,6 +3,62 @@
 All notable changes to the Huitzo developer environment. Versions follow the
 plugin manifest (`.claude-plugin/plugin.json`).
 
+## 2.2.0 — 2026-10
+
+Run-view authoring: the environment now teaches and checks the pack shape
+that the run page in Huitzo Hub can show (one step per pipeline stage, with
+the model calls each stage made).
+
+### Added
+- `huitzo-methodology`: a "Run-view authoring" section with eight rules, a
+  "Shows on the run page?" column in the composition table, new anti-pattern
+  rows and a review-checklist line.
+- `sdk-patterns` rule: a typed stage example with its `pipelines:` block,
+  and the rule that `ctx.http` never reaches a model-provider host.
+- `testing` rule: "Pattern 4 — stage chain" (load the manifest, assert the
+  stage order and refs, feed each stage's `model_dump()` into the next
+  stage's args model).
+- `error-handling` rule: a "Pipeline stages" section (stage failures reach
+  the caller as `PipelineError`; check caller input before the pipeline;
+  retries and fallbacks stay inside the stage) and rule 6, no user text in
+  error messages.
+- `pack-reviewer`: section 8 "Run-view authoring" and a grade line (a
+  multi-step command with no stages cannot score above B).
+- `pack-developer`: a "Multi-step work is a pipeline of stages" section and
+  two definition-of-done items for stages and the chain test.
+- `/draft-spec` (skill, questionnaire, spec template), `/draft-docs` and
+  `docs-writer`: a stage table (stage, command, input model, output model,
+  model calls, retries / fallback, errors) for multi-step commands.
+- `huitzo-sdk`, `huitzo-manifest`, `huitzo-platform`: what the run page
+  shows for `ctx.commands`, `ctx.pipeline`, a manifest pipeline and the
+  pipeline endpoint; stage naming; a composing-command example.
+- `post-edit` hook: two non-blocking nudges for `.py` files, a
+  model-provider host in a file that uses `ctx.http`, and more than one
+  `ctx.commands.execute` call in one function.
+- `scripts/validate_env.py`: flags a model-provider host or a command
+  example returning an untyped `dict` in the environment's own text (lines
+  marked ❌ are exempt). `scripts/test_hooks.sh` covers both and the new nudges.
+
+### Changed
+- Core rule 2 is now "One command is one step, or one pipeline of steps";
+  core rule 3 is now "Model calls go through `ctx.llm` only, by profile".
+  The count stays at twelve.
+- A typed args model **and** a typed return model are the default command
+  shape in `sdk-patterns`, `pack-developer`, `/add-command` and
+  `docs-writer` (previously a `dict` return was the convention).
+- `/add-command` validates with `huitzo pack validate --strict`, which also
+  fails on a stage ref that names no command in the pack and on a stage
+  whose return model does not fit the next stage's args model.
+
+### Fixed
+- `CONSTITUTION.md` quality gates named a command that does not exist; the
+  gate is `huitzo pack validate --strict`.
+- `huitzo-methodology` said the platform records a run's inputs. The run
+  page shows status, order, timing and model-call usage, not arguments or
+  output.
+- `error-handling` examples that put the caller's text into
+  `ValidationError.value`.
+
 ## 2.1.1 — 2026-09
 
 ### Fixed

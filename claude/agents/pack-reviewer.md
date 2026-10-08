@@ -1,6 +1,6 @@
 ---
 name: pack-reviewer
-description: Reviews Intelligence Pack code (Python) for correctness against its documented contract, SDK misuse, manifest/permission consistency, error handling, tests, and security. Read-only — delegate to it before merging pack changes, not for implementation.
+description: Reviews Intelligence Pack code (Python) for correctness against its documented contract, SDK misuse, manifest/permission consistency, error handling, tests, security, and run-view authoring. Read-only — delegate to it before merging pack changes, not for implementation.
 tools: Read, Glob, Grep, Skill
 model: inherit
 ---
@@ -24,8 +24,8 @@ via the Skill tool rather than guessing.
 ### 2. SDK misuse
 
 - [ ] `@command` used correctly: kebab-case name, `namespace=` matching
-      `pack.namespace`, args as a Pydantic model, `Context` as the second
-      parameter.
+      `pack.namespace`, args as a Pydantic model, a Pydantic return model,
+      `Context` as the second parameter.
 - [ ] `ctx.llm` calls pass `profile=`, never a model name.
 - [ ] `ctx.storage` uses `.save()`/`.get()` — not `.set()`.
 - [ ] `ctx.secrets.require()`/`.get()` are awaited — they're async.
@@ -79,6 +79,42 @@ via the Skill tool rather than guessing.
 - [ ] No dead code, unused imports, or speculative abstraction for a single
       caller.
 
+### 8. Run-view authoring
+
+The run page shows one step per pipeline stage, with the model calls each
+stage made. These checks decide whether a run of this pack can be read.
+(This section is separate from the traceability header, which is the
+`Implements:` block.) Load `huitzo-methodology` for the eight rules.
+
+- [ ] **Pipeline for multi-step work.** A command that makes more than one
+      model call, or chains `ctx.commands.execute` calls, or mixes a model
+      call with an external effect, is a pipeline under `pipelines:` — not
+      one long command. Single-step commands (lookups, CRUD) stay as they are.
+- [ ] **A stage is a unit.** Each stage has its own failure mode, external
+      effect or model call. No stage per helper function.
+- [ ] **Model calls sit inside stages, through `ctx.llm`.** Grep for
+      `ctx.llm.` and confirm every hit is in a stage command or a helper only
+      stage commands call.
+- [ ] **A composing command makes no model call and runs exactly one
+      pipeline.** A command that uses `ctx.pipeline` has no `ctx.llm` call
+      and one `.execute(...)` of one pipeline.
+- [ ] **Retries and fallbacks are inside the stage that owns them.** No
+      `fallback`/`retry` stage placed after the stage that may fail (later
+      stages are skipped once one raises).
+- [ ] **Stage names are short verbs** (`extract`, `assess`), not command
+      names, not `stage_1`.
+- [ ] **Typed stage I/O with a chain test.** Every stage command has an args
+      model and a return model; each return model carries what later stages
+      need; a test loads the manifest, asserts the stage order and refs, and
+      feeds each stage's `model_dump()` into the next stage's args model.
+- [ ] **Caller input is checked before the pipeline** where the error type
+      matters: a stage failure reaches the caller as `PipelineError`.
+- [ ] **No user text in error messages.** `message=` and `value=` name the
+      field and the fix; they do not repeat an argument's content. Stage
+      commands are callable directly, so every input field has its limits.
+- [ ] **No model-provider host** in `services.http.allowed_domains` or in
+      any `ctx.http` URL.
+
 ## Output format
 
 Report every finding with a severity and location:
@@ -96,10 +132,14 @@ Location: {file}:{line}
 |---|---|
 | A+ | Every check above passes; docs, tests, and manifest are all consistent. |
 | A | Only minor/nit findings. |
-| B | One major finding (e.g. a missing test, a manifest/permission mismatch) but nothing blocking. |
+| B | One major finding (e.g. a missing test, a manifest/permission mismatch, user text repeated in an error message, a pipeline with no chain test) but nothing blocking. |
 | C | Missing documentation for a command, or weak error handling. |
-| D | A blocking SDK misuse (e.g. wrong error class, un-awaited async call) or manifest inconsistency that would fail `huitzo pack validate`. |
+| D | A blocking SDK misuse (e.g. wrong error class, un-awaited async call), a model call made through `ctx.http`, or a manifest inconsistency that would fail `huitzo pack validate --strict`. |
 | F | Hardcoded secrets, an SSRF-shaped HTTP call, or no tests/docs at all. |
 
 Documentation completeness is a hard gate — a pack cannot score above B
 without a doc for every command it ships.
+
+Run-view authoring is a hard gate too — a pack whose multi-step work is one
+command with no stages (several model calls inline, or a chain of
+`ctx.commands.execute` calls) cannot score above B.

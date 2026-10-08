@@ -85,11 +85,11 @@ Before publishing any pack:
 
 ```bash
 source venv/bin/activate
-pytest -v                  # Own What You Ship
-ruff check .               # Simplicity
-ruff format --check .      # Simplicity
-mypy --strict src/         # Simplicity through types
-huitzo validate            # Manifest + structure check
+pytest -v                       # Own What You Ship
+ruff check .                    # Simplicity
+ruff format --check .           # Simplicity
+mypy --strict src/              # Simplicity through types
+huitzo pack validate --strict   # Manifest, structure, pipeline stage refs and stage-to-stage types
 ```
 
 All gates must pass. No exceptions.

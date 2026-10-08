@@ -89,6 +89,20 @@ split for each:
   - Error conditions: which SDK exceptions and when
   - Timeout estimate, and whether it belongs on the `fast`, `medium`, or
     `long` queue
+- **For each piece of multi-step work, a stage table.** One command is one
+  step. Work with several steps (more than one model call, a model call plus
+  an external effect, steps that fail separately) is a pipeline. For each
+  stage ask:
+  - Stage name (a short verb — it is the label on the run page) and the
+    `verb-noun` command it runs
+  - Input model and output model, and what the output must carry forward
+    for later stages
+  - Model calls: how many, and in which cases none (every model call goes
+    through `ctx.llm`, inside a stage)
+  - Retries or fallback, kept inside the stage (a pipeline stops at the
+    first stage that raises)
+  - Errors, and which caller input must be checked before the pipeline
+    starts so the caller gets a specific error type
 - "What data needs to be persisted?"
   - Storage keys, scope (user/tenant/pack), TTL, data shape
 - For dashboard projects:
@@ -117,13 +131,13 @@ Synthesize all phases into a formal specification. Write to `docs/spec/{project-
 
 Use the template from `templates/spec-template.md.tmpl`.
 
-Sections: Overview, User Stories, Command Specifications (per command: name, args, returns, errors, services), Dashboard Specifications (per page/component), Non-Functional Requirements, Storage Schema, External Dependencies, Glossary.
+Sections: Overview, User Stories, Command Specifications (per command: name, args, returns, errors, services; per multi-step command: the stage table), Dashboard Specifications (per page/component), Non-Functional Requirements, Storage Schema, External Dependencies, Glossary.
 
 ### Phase 7 — Architecture Generation
 
 Generate technical architecture. Write to `docs/spec/{project-name}-architecture.md`:
 
-Sections: System Overview, Command Architecture (per command: implementation approach, LLM strategy), Dashboard Architecture (component tree, state management, routing), Storage Design (keys, scopes, TTLs), Integration Architecture (external services, auth, retry), Error Handling Strategy, Implementation Plan (ordered task list with dependencies).
+Sections: System Overview, Command Architecture (per command: implementation approach; per pipeline: the stages, with the LLM strategy stated per stage, not per command), Dashboard Architecture (component tree, state management, routing), Storage Design (keys, scopes, TTLs), Integration Architecture (external services, auth, retry), Error Handling Strategy, Implementation Plan (ordered task list with dependencies).
 
 5. **Print summary** of what was generated and next steps:
    - "Specification written to `docs/spec/{name}-spec.md`"

@@ -52,7 +52,7 @@ Pick one channel per project. Both together work but hooks would run twice.
 
 ### Always-on core
 
-`.claude/rules/00-huitzo-core.md` (about 100 lines) is the only always-loaded context: project detection,
+`.claude/rules/00-huitzo-core.md` (about 110 lines) is the only always-loaded context: project detection,
 the docs-first loop, twelve non-negotiable rules, the `ctx` services table, and where to get more
 context (installed package → reference skills → project docs MCP → docs.huitzo.ai → CLI `--help` →
 worked examples). Everything else loads on demand.
@@ -61,20 +61,20 @@ worked examples). Everything else loads on demand.
 
 | Skill | Verified against | Covers |
 |---|---|---|
-| `huitzo-sdk` | huitzo-sdk 1.7.0 | `@command`, every `ctx.*` service with exact signatures, errors, testing patterns |
-| `huitzo-manifest` | huitzo-sdk 1.7.0 | `huitzo.yaml` schema v2, policy card, the 14 permission tokens, services, pipelines |
+| `huitzo-sdk` | huitzo-sdk 1.7.0 | `@command`, every `ctx.*` service with exact signatures, composing one pipeline, errors, testing patterns |
+| `huitzo-manifest` | huitzo-sdk 1.7.0 | `huitzo.yaml` schema v2, policy card, the 14 permission tokens, services, pipelines and stage naming |
 | `huitzo-dashboard-sdk` | dashboard-sdk-react 7.0.0 | mount contract, `HuitzoMountContext`, all hooks, Templates, tokens and `hz-*` primitives |
 | `cli-non-interactive` | CLI surface 2026-09 | every developer-facing `huitzo` command, JSON envelope, exit codes, agent recipes |
 | `huitzo-platform` | docs.huitzo.ai | REST API, API keys, task polling, hosted MCP, MCP inside packs, webhooks, secrets model |
-| `huitzo-methodology` | docs.huitzo.ai | deterministic-first design, command sizing, composition, testing pyramid, shipping |
+| `huitzo-methodology` | docs.huitzo.ai | deterministic-first design, command sizing, composition, run-view authoring (the eight rules), testing pyramid, shipping |
 
 ### Workflow skills
 
 | Skill | Scope | Does |
 |---|---|---|
-| `/draft-spec <name>` | both | 7-phase requirements gathering → `docs/spec/` |
-| `/draft-docs <verb-noun>` | pack | write the command contract before code |
-| `/add-command <verb-noun>` | pack | scaffold command, args model, test, manifest entry (uses `huitzo pack add-command` when available) |
+| `/draft-spec <name>` | both | 7-phase requirements gathering → `docs/spec/`, with a stage table for multi-step work |
+| `/draft-docs <verb-noun>` | pack | write the command contract (and its stage table) before code |
+| `/add-command <verb-noun>` | pack | scaffold command, args and return models, test, manifest entry, pipeline stage entry (uses `huitzo pack add-command` when available) |
 | `/test-pack`, `/validate-pack`, `/lint-and-fix` | pack | pytest, `huitzo pack validate --strict`, ruff/mypy |
 | `/scaffold-dashboard [page] <Name>` | dashboard | component/page with docs, styles, test |
 | `/test-dashboard`, `/validate-dashboard`, `/dashboard-dev`, `/dashboard-e2e` | dashboard | tests, `huitzo dashboard validate`, dev server, mount→unmount check |
@@ -86,6 +86,16 @@ worked examples). Everything else loads on demand.
 `pack-developer` and `dashboard-developer` (preload their reference skill), `pack-reviewer` and
 `dashboard-reviewer` (read-only, checklist-driven, graded findings), `docs-writer`, `spec-architect`.
 
+### Run-view authoring
+
+The run page in Huitzo Hub shows one run's steps with their status, order, timing and model-call
+usage. What it can show depends on how the pack is shaped, so the environment teaches and checks
+that shape: one command is one step, multi-step work is a pipeline of verb-named, typed stages,
+and every model call goes through `ctx.llm` inside a stage. The eight rules are in
+`huitzo-methodology`; the `sdk-patterns`, `testing` and `error-handling` rules carry the code
+patterns; `pack-reviewer` grades against them; the post-edit hook nudges on the two commonest
+slips. (This is separate from the traceability header, which is the `Implements:` block.)
+
 ### Rules (path-scoped)
 
 `sdk-patterns`, `error-handling`, `testing`, `pack-manifest`, `traceability`, `documentation`,
@@ -96,8 +106,9 @@ matching file is edited.
 
 Session context at start; a blocking secrets scan on writes (API keys, tokens, private keys);
 non-blocking nudges after edits (missing traceability header, hex colours in dashboards,
-`model=` on `ctx.llm`, `dangerouslySetInnerHTML`, ruff findings); a summary of unheadered files when
-you stop. Outside a Huitzo project every hook exits immediately. The secrets scan skips JWT-shaped
+`model=` on `ctx.llm`, a model-provider host in a file that uses `ctx.http`, more than one
+`ctx.commands.execute` call in one function, `dangerouslySetInnerHTML`, ruff findings); a summary of
+unheadered files when you stop. Outside a Huitzo project every hook exits immediately. The secrets scan skips JWT-shaped
 and generic `sk-…` examples in prose files (`.md`, `.mdx`, `.rst`, `.txt`) and honours
 `HUITZO_SECRETS_SCAN=warn` (report, never block) or `=off`. The seeded permission allowlist in
 `.claude/settings.json` only applies once you trust the workspace in Claude Code; it covers read-only
@@ -135,11 +146,11 @@ full set; on-demand loading keeps the always-on context the same size in every p
 ## Validation
 
 ```bash
-python3 scripts/validate_env.py          # structure, frontmatter, information boundary, stale API tokens
+python3 scripts/validate_env.py          # structure, frontmatter, information boundary, stale API tokens, wrong teaching
 python3 scripts/check_api_surface.py     # documented API facts vs the published packages (network)
 python3 scripts/check_links.py           # every external link resolves (network)
 python3 scripts/simulate_seed.py         # what each profile seeds into a project
-bash scripts/test_hooks.sh               # hook behaviour against synthetic Claude Code events
+bash scripts/test_hooks.sh               # hook behaviour against synthetic Claude Code events; validator fixtures
 claude plugin validate . --strict        # marketplace manifest (+ nested plugin manifest)
 claude plugin validate ./.claude-plugin/plugin.json --strict
 claude plugin validate ./claude --strict # skills and agents frontmatter

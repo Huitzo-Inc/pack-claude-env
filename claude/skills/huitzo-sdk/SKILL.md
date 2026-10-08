@@ -77,7 +77,9 @@ model instance passed in (not a `dict`) is used untouched.
 
 **Return type:** `Result = dict[str, Any] | BaseModel | str | int | None` — a
 command may return a dict, a Pydantic model, a bare `str`/`int`, or `None`;
-it is not limited to `dict`.
+it is not limited to `dict`. **Default to a Pydantic return model**: a typed
+return is what lets the command be a pipeline stage, whose output is
+validated against the next stage's args model.
 
 If the runtime doesn't inject a `Context`, the wrapper raises
 `ConfigurationError` — "Context must be provided by the Huitzo runtime."
@@ -184,6 +186,45 @@ delegates `.execute(*args, **kwargs)`. An unregistered name raises
 `AttributeError` listing what *is* available — not `IntegrationError`.
 `ctx.resolve(SomeIntegrationType)` looks up by class; zero or multiple
 matches raise `IntegrationLifecycleError`.
+
+**`ctx.commands` — a helper call, not a step.** `execute` runs another
+command of this pack inline and returns its result. The run page does not
+record nested calls as steps: the calling command is one step, and model
+calls the nested command made are listed on it. Use it for a small lookup
+inside one step. A flow of several steps is a pipeline.
+
+**`ctx.pipeline` on the run page.** A command that runs **exactly one**
+pipeline through `ctx.pipeline` shows that pipeline's stages as the steps of
+its run, in order; the command is the page header. Two or more pipelines in
+one command show one step (the command). So a composing command checks its
+input, builds one pipeline, executes it and returns the last stage's output
+— and makes no `ctx.llm` call of its own, because a call made outside a
+stage can land on the first stage or be listed as unattributed:
+
+```python
+@command("triage-claim", namespace="claims", timeout=180)
+async def triage_claim(args: TriageArgs, ctx: Context) -> RoutedClaim:
+    """Extract, assess and route one claim."""
+    if args.policy_id not in KNOWN_POLICIES:          # before the pipeline: the caller
+        raise ValidationError(                        # gets ValidationError, not PipelineError
+            field="policy_id", value=None, message="Unknown policy. Pick one from list-policies."
+        )
+    pipeline = (
+        ctx.pipeline.create("claim-intake", timeout=170)
+        .add_stage("claims:extract-claim", name="extract")     # name = the step label
+        .add_stage("claims:assess-risk", name="assess")
+        .add_stage("claims:decide-route", name="decide")
+    )
+    result = await pipeline.execute(args.model_dump())
+    if not result.final_output:
+        raise CommandError("Claim intake finished without a result")
+    return RoutedClaim.model_validate(result.final_output[-1].data)
+```
+
+Declare the same stages under `pipelines:` in `huitzo.yaml` and keep the two
+equal with a test. A stage that raises ends the run (later stages are
+skipped) and reaches the caller as `PipelineError`; keep retries and
+fallbacks inside the stage.
 
 **`ctx.pipeline` / `ctx.pipe` — `RuntimeError`, not `IntegrationError`.**
 `ctx.pipeline.create(name, *, timeout=300) -> PipelineBuilder`
@@ -342,6 +383,10 @@ not an imported fixture.
 | ❌ hardcoding `"gpt-4"` / `"claude-sonnet-4-6"` anywhere in pack code | pass `profile="default"` and declare the profile in `huitzo.yaml` |
 | ❌ `open(path).read()` / `Path(path).write_text(...)` | `await ctx.files.read(path)` / `await ctx.files.write(path, content)` |
 | ❌ `ctx.log.info(f"key={api_key}")` | `ctx.log.info("secret loaded", key_name="API_KEY")` (never the value) |
+| ❌ `await ctx.http.post("https://api.openai.com/v1/chat/completions", ...)` | `await ctx.llm.complete(prompt, profile="default")` — a model call through `ctx.http` is invisible on the run page |
+| ❌ three `await ctx.commands.execute(...)` calls chained in one command | a `pipelines:` block with one stage per step — nested calls are not recorded as steps |
+| ❌ a command that calls `ctx.llm` and then runs a pipeline | every model call inside a stage; the composing command runs one pipeline and nothing else |
+| ❌ `raise ValidationError(field="note", value=args.note, message=f"Bad note: {args.note}")` | `ValidationError(field="note", value=None, message="Note is empty. Add some text.")` — never repeat user text |
 
 ## Read more
 

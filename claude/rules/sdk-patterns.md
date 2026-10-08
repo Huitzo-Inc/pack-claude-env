@@ -30,26 +30,88 @@ from huitzo_sdk import Context, command
 
 class AnalyzeArgs(BaseModel):
     """Arguments for the analyze-text command."""
-    text: str = Field(..., description="Text to analyze")
-    language: str = Field(default="en", description="Language code")
+    text: str = Field(..., max_length=10_000, description="Text to analyze")
+    language: str = Field(default="en", max_length=8, description="Language code")
+
+class AnalyzeResult(BaseModel):
+    """What analyze-text returns."""
+    summary: str = Field(..., description="One-sentence summary")
+    language: str = Field(..., description="Language code the summary is written in")
 
 @command("analyze-text", namespace="my-pack", timeout=60, queue="medium")
-async def analyze_text(args: AnalyzeArgs, ctx: Context) -> dict:
+async def analyze_text(args: AnalyzeArgs, ctx: Context) -> AnalyzeResult:
     """Docstring becomes marketplace help text."""
-    return {"result": "value"}
+    summary = await ctx.llm.complete(f"<INPUT>\n{args.text}\n</INPUT>", profile="default")
+    return AnalyzeResult(summary=summary.strip(), language=args.language)
 ```
 
 - `name`: kebab-case `verb-noun` (e.g. `analyze-text`, `send-report`).
 - `namespace`: must match the pack's `namespace` in `huitzo.yaml`.
 - First parameter: a `pydantic.BaseModel` subclass (validated from a `dict`
-  automatically) — or a plain `dict` if the command takes no structured args.
+  automatically). Give every field its limits (`max_length`, ranges).
 - Second parameter: `Context`, injected by the runtime.
 - `queue`: `"fast" | "medium" | "long"` only — never `"default"` or `"auto"`.
   Default is `"medium"`. Pick `"long"` for anything that can run past ~15 minutes.
 - Both `async def` and plain sync functions are supported; prefer `async def`
   for I/O-bound work; use a plain sync function only when the work is CPU-bound.
-- Return `dict`, a Pydantic model, `str`, `int`, or `None` — pick one shape
-  per command and keep it consistent across versions.
+- Return a `pydantic.BaseModel` subclass. The SDK also accepts `dict`, `str`,
+  `int` and `None`, but a typed return model is the default here: it is what
+  lets a command be a pipeline stage, and what `huitzo pack validate --strict`
+  compares with the next stage's args model.
+
+## Stages: one step each
+
+Work with more than one step (several model calls, a model call plus an
+external effect, steps that fail separately) is a pipeline, not one long
+command. Each stage is an ordinary typed command; the chain lives in
+`huitzo.yaml`:
+
+```python
+class ExtractArgs(BaseModel):
+    text: str = Field(..., max_length=20_000, description="Raw claim text")
+
+class ExtractedClaim(BaseModel):
+    amount: float = Field(..., ge=0, description="Claimed amount")
+    category: str = Field(..., max_length=40, description="Claim category")
+
+@command("extract-claim", namespace="claims", timeout=60)
+async def extract_claim(args: ExtractArgs, ctx: Context) -> ExtractedClaim:
+    """Read the amount and category out of a claim."""
+    claim = await ctx.llm.complete(
+        f"<INPUT>\n{args.text}\n</INPUT>", profile="default", schema=ExtractedClaim
+    )
+    return ExtractedClaim.model_validate(claim)   # the model's output is checked, not trusted
+
+class AssessedClaim(ExtractedClaim):          # carries forward what `decide` needs
+    risk: str = Field(..., description="low | medium | high")
+
+@command("assess-risk", namespace="claims", timeout=10)
+async def assess_risk(args: ExtractedClaim, ctx: Context) -> AssessedClaim:
+    """Score the claim with fixed rules; no model call."""
+    risk = "high" if args.amount > 10_000 else "low"
+    return AssessedClaim(**args.model_dump(), risk=risk)
+```
+
+```yaml
+pipelines:
+  claim-intake:
+    stages:
+      - name: extract            # short verb: this is the label on the run page
+        command: "claims:extract-claim"
+      - name: assess
+        command: "claims:assess-risk"
+```
+
+- A stage's return model is the next stage's args model, or a superset of it.
+- Every model call is `ctx.llm` inside the stage that owns it. Retries and
+  fallbacks stay inside that stage too: once a stage raises, later stages
+  are skipped.
+- A command that composes a pipeline (`ctx.pipeline`) checks its input,
+  runs exactly one pipeline and makes no model call of its own.
+- More than one `ctx.commands.execute` call in a command is a pipeline
+  written as glue code. Nested calls are not recorded as steps.
+
+The eight run-view authoring rules are in the `huitzo-methodology` skill.
 
 ## Service one-liners
 
@@ -92,6 +154,16 @@ Keys must match `^[a-zA-Z0-9_\-./]{1,256}$` — no `:`.
 `services.http.allowed_domains` (plus `*.suffix` wildcards). HTTPS is
 required. Don't try to work around a blocked domain — add it to the manifest
 instead of routing through a proxy or IP literal.
+
+**Never a model-provider host.** Do not call a model provider's API through
+`ctx.http`, and do not put a provider host in `allowed_domains`. Model calls
+go through `ctx.llm` only. A model call made through `ctx.http` is invisible
+on the run page: no model-call mark, no usage, on any step.
+
+```python
+await ctx.http.post("https://api.openai.com/v1/chat/completions", json=body)   # ❌ model call through ctx.http
+answer = await ctx.llm.complete(prompt, profile="default")                     # ✅
+```
 
 ## Secrets
 

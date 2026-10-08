@@ -57,6 +57,16 @@ category: spec
 
 **Timeout:** 60s
 
+**Stages** (multi-step commands only; delete for a one-step command):
+
+Pipeline: `{pipeline-name}`. The run page shows one step per stage.
+
+| Stage | Command | Input model | Output model | Model calls | Retries / fallback | Errors |
+|-------|---------|-------------|--------------|-------------|--------------------|--------|
+| `{verb}` | `{verb-noun}` | `{ArgsModel}` | `{ResultModel}` | {none \| 1, always \| 1, only when ...} | {none \| what the stage does when a call fails} | {SDK exception, condition} |
+
+Checked before the pipeline starts: {caller input and the error it raises, or "nothing"}.
+
 ## 4. Dashboard Specifications
 
 > The dashboard renders the pack's decisions and lets the user trigger the

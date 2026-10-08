@@ -4,7 +4,8 @@
 #
 # Behavioural tests for the hook scripts in claude/hooks/. Runs each script the
 # way Claude Code runs it (JSON on stdin, exit code + stderr as the contract)
-# inside a throw-away project directory. No network, no jq requirement.
+# inside a throw-away project directory. Also checks that validate_env.py
+# flags the wrong teaching the hooks nudge about. No network, no jq requirement.
 #
 # Usage: bash scripts/test_hooks.sh   (from the repo root)
 
@@ -27,6 +28,10 @@ expect_exit() {  # expect_exit <label> <expected-code> <script> <stdin-json>
 
 expect_stderr_contains() {  # expect_stderr_contains <label> <needle>
   if grep -q -- "$2" "$TMP/err"; then pass "$1"; else fail "$1 (stderr lacked '$2'): $(head -c 300 "$TMP/err")"; fi
+}
+
+expect_stderr_lacks() {  # expect_stderr_lacks <label> <needle>
+  if grep -q -- "$2" "$TMP/err"; then fail "$1 (stderr had '$2'): $(head -c 300 "$TMP/err")"; else pass "$1"; fi
 }
 
 expect_stdout_contains() {  # expect_stdout_contains <label> <needle>
@@ -77,6 +82,53 @@ if grep -q "Implements" "$TMP/err"; then fail "no traceability warning expected"
 expect_exit "ignores missing file" 0 "$HOOKS/post-edit.sh" \
   '{"tool_name":"Write","tool_input":{"file_path":"'"$TMP"'/project/does-not-exist.py"}}'
 
+CMD_DIR="$TMP/project/src/demo/commands"
+write_cmd() {  # write_cmd <file> <body line>... — a command file with a traceability header
+  local file="$CMD_DIR/$1"; shift
+  printf '"""\nModule: m\n\nImplements:\n    - docs/commands/hello.md\n"""\n' >"$file"
+  printf '%s\n' "$@" >>"$file"
+}
+post_edit() {  # post_edit <label> <file under src/demo/commands/>
+  expect_exit "$1" 0 "$HOOKS/post-edit.sh" \
+    '{"tool_name":"Write","tool_input":{"file_path":"'"$CMD_DIR/$2"'"}}'
+}
+write_cmd model_http.py 'async def run(args, ctx):' \
+  '    return await ctx.http.post("https://api.openai.com/v1/chat/completions", json={})'
+post_edit "model host with ctx.http is non-blocking" model_http.py
+expect_stderr_contains "nudges towards ctx.llm" "model-provider host"
+write_cmd data_http.py 'async def run(args, ctx):' \
+  '    return await ctx.http.get("https://api.example.com/v1/weather/today")'
+post_edit "ordinary ctx.http host" data_http.py
+expect_stderr_lacks "no model-host nudge for a data API" "model-provider host"
+write_cmd model_llm.py '# api.openai.com is the provider; this pack reaches it through ctx.llm' \
+  'async def run(args, ctx):' '    return await ctx.llm.complete("hi", profile="default")'
+post_edit "model host named without ctx.http" model_llm.py
+expect_stderr_lacks "no model-host nudge without ctx.http" "model-provider host"
+write_cmd chain.py 'async def run(args, ctx):' '    a = await ctx.commands.execute("extract", {})' \
+  '    return await ctx.commands.execute("assess", a)'
+post_edit "chained ctx.commands.execute is non-blocking" chain.py
+expect_stderr_contains "suggests a pipeline" "belongs in a pipeline"
+write_cmd single.py 'async def run(args, ctx):' '    # ctx.commands.execute("old", {}) used to be here' \
+  '    return await ctx.commands.execute("lookup", {})'
+post_edit "single ctx.commands.execute" single.py
+expect_stderr_lacks "no pipeline nudge for one helper call" "belongs in a pipeline"
+write_cmd two_commands.py 'async def first(args, ctx):' '    return await ctx.commands.execute("lookup-a", {})' \
+  '' 'async def second(args, ctx):' '    return await ctx.commands.execute("lookup-b", {})'
+post_edit "two commands with one ctx.commands.execute each" two_commands.py
+expect_stderr_lacks "no pipeline nudge for separate commands in one file" "belongs in a pipeline"
+write_cmd documented.py 'async def run(args, ctx):' '    """Look up the rate.' '' \
+  '    Replaces the old ctx.commands.execute("extract") then ctx.commands.execute("assess") flow.' '    """' \
+  '    rate = await ctx.commands.execute("lookup", {})  # not a second ctx.commands.execute call' '    return rate'
+post_edit "ctx.commands.execute named in a docstring and a trailing comment" documented.py
+expect_stderr_lacks "no pipeline nudge for docstring and comment mentions" "belongs in a pipeline"
+write_cmd second_chain.py 'async def lookup(args, ctx):' '    return await ctx.commands.execute("lookup", {})' \
+  '' 'async def run(args, ctx):' '    a = await ctx.commands.execute("extract", {})' \
+  '    return await ctx.commands.execute("assess", a)'
+post_edit "chain in the second function of a file" second_chain.py
+expect_stderr_contains "counts calls per function" "has 2 ctx.commands.execute calls in one function"
+rm -f "$CMD_DIR/model_http.py" "$CMD_DIR/data_http.py" "$CMD_DIR/model_llm.py" "$CMD_DIR/chain.py" "$CMD_DIR/single.py" \
+  "$CMD_DIR/two_commands.py" "$CMD_DIR/documented.py" "$CMD_DIR/second_chain.py"
+
 echo "pre-stop.sh"
 printf 'def y():\n    return 2\n' >"$TMP/project/src/demo/commands/changed.py"
 (cd "$TMP/project" && git add -A)
@@ -97,6 +149,21 @@ rm -rf "$TMP/project/docs"
 ( cd "$TMP/project" && timeout 5 bash "$HOOKS/docs-mcp.sh" >"$TMP/out" 2>"$TMP/err" ); got=$?
 if [ "$got" -eq 1 ]; then pass "exits 1 with a clear message when docs/ is missing"; else fail "exits $got when docs/ is missing (wanted 1)"; fi
 expect_stderr_contains "names the missing docs root" "docs/ not found"
+
+echo "validate_env.py (wrong teaching in the environment's own text)"
+mkdir -p "$TMP/env/claude/rules" "$TMP/env/profiles"
+validate_fixture() {  # validate_fixture <line written to claude/rules/x.md>
+  printf '%s\n' "$1" >"$TMP/env/claude/rules/x.md"
+  python3 "$ROOT/scripts/validate_env.py" --root "$TMP/env" >"$TMP/out" 2>"$TMP/err"
+}
+validate_fixture 'await ctx.http.post("https://api.openai.com/v1/chat/completions")'
+expect_stdout_contains "flags a model-provider host taught as correct" "model-provider host"
+validate_fixture 'await ctx.http.post("https://api.openai.com/v1/chat/completions")  # ❌'
+if grep -q "model-provider host" "$TMP/out"; then fail "a ❌ model-host line must be exempt"; else pass "exempts a ❌ model-host line"; fi
+validate_fixture 'async def run(args: Args, ctx: Context) -> dict:'
+expect_stdout_contains "flags a command example returning an untyped dict" "untyped dict"
+validate_fixture 'async def run(args: Args, ctx: Context) -> Result:'
+if grep -q "untyped dict" "$TMP/out"; then fail "a typed return must pass"; else pass "accepts a typed return model"; fi
 
 echo
 if [ "$FAILURES" -gt 0 ]; then echo "test_hooks: $FAILURES failure(s)"; exit 1; fi
