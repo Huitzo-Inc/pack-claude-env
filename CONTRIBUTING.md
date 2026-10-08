@@ -7,7 +7,7 @@ both working.
 ## Before opening a pull request
 
 ```bash
-python3 scripts/validate_env.py          # structure, frontmatter, information boundary, stale tokens
+python3 scripts/validate_env.py          # structure, frontmatter, information boundary, stale tokens, wrong teaching
 python3 scripts/check_legal_headers.py   # SPDX headers on scripts (never change the identifier)
 bash scripts/test_hooks.sh               # hook behaviour against synthetic Claude Code events
 python3 scripts/simulate_seed.py         # what each profile seeds into a project
@@ -42,6 +42,10 @@ CI runs the same checks.
   `scripts/check_api_surface.py`.
 - Every "do not write this" example carries the ❌ character on its line. The
   validator's stale-token checks skip those lines and flag every other match.
+  That includes a model-provider host (model calls go through `ctx.llm`) and
+  a command example that returns an untyped `dict`.
+- The new authoring rules are called "run-view authoring". "Traceability"
+  already means the `Implements:` header; do not use it for anything else.
 - Rules carry a non-empty `paths:` frontmatter, except `00-huitzo-core.md`,
   which is the only always-on rule.
 - Skills: `name` equals the folder name; description ≤ 200 characters in the
