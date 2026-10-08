@@ -58,11 +58,11 @@ with a default `Context()`:
 
 ```python
 from huitzo_sdk import Context
-from my_pack.commands.hello import hello_world
+from my_pack.commands.hello import HelloArgs, hello_world
 
 async def test_hello_world() -> None:
-    result = await hello_world({}, Context())
-    assert result["message"] == "Hello, World!"
+    result = await hello_world(HelloArgs(), Context())
+    assert result.message == "Hello, World!"
 ```
 
 ## Pattern 3 — `MagicMock(spec=Context)` + `AsyncMock`

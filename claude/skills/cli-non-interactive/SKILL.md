@@ -113,7 +113,7 @@ means re-authenticate.
 | `list [--local]` | remote by default; `--local` lists installed via entry points |
 | `run <@scope/pack/cmd>` / `huitzo run` | `--args '<json>'`, `--raw`; extra `--flags` pass through as pydantic args |
 | `delete <name>` | `-f/--force` |
-| `add-command [NAME]` | `-d/--description`, `-p/--permissions "a,b"`, `-t/--timeout`, `-q/--queue`, `-r/--retries`, `--pydantic/--no-pydantic`, `--path` |
+| `add-command [NAME]` | `-d/--description`, `-p/--permissions "a,b"`, `-t/--timeout`, `-q/--queue`, `-r/--retries`, `--path` |
 | `sync [--path DIR]` | regenerate `pyproject.toml` from `huitzo.yaml` |
 | `exec <command> [--args '<json>']` | `--sandbox-url`, `--sandbox-token`, `--local` (ephemeral), `--port`, `--no-tls`, `--local-keys`, `--pidfile`, `--file PATH` (repeatable) |
 | `list-commands` / `describe <command>` | same sandbox-resolution flags as `exec` |

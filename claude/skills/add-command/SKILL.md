@@ -27,7 +27,7 @@ documented contract must exist before its implementation.
 4. **Prefer the real CLI, when `huitzo` is on PATH:**
 
    ```bash
-   huitzo pack add-command {name} --description "..." --pydantic
+   huitzo pack add-command {name} --description "..."
    ```
 
    Never pass `--queue default` — the flag offers it, but the manifest schema
