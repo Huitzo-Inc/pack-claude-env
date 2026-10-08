@@ -34,7 +34,7 @@ the model calls each stage made).
   pipeline endpoint; stage naming; a composing-command example.
 - `post-edit` hook: two non-blocking nudges for `.py` files, a
   model-provider host in a file that uses `ctx.http`, and more than one
-  `ctx.commands.execute` call in a file.
+  `ctx.commands.execute` call in one function.
 - `scripts/validate_env.py`: flags a model-provider host or a command
   example returning an untyped `dict` in the environment's own text (lines
   marked ❌ are exempt). `scripts/test_hooks.sh` covers both and the new nudges.

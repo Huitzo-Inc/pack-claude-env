@@ -12,8 +12,9 @@
 #   (e) `ruff check` findings, when ruff is on PATH, for a .py file
 #   (f) a model-provider host in a .py file that uses ctx.http (model calls
 #       go through ctx.llm; through ctx.http they never reach the run page)
-#   (g) more than one ctx.commands.execute call in a .py file (a multi-step
-#       flow belongs in a pipeline; nested calls are not recorded as steps)
+#   (g) more than one ctx.commands.execute call in one function of a .py file
+#       (a chained multi-step flow belongs in a pipeline; nested calls are not
+#       recorded as steps)
 #
 # No network. Bash 3.2 compatible. Missing file or no Huitzo project marker
 # → silent exit 0.
@@ -84,12 +85,28 @@ case "$REL" in
     ;;
 esac
 
-# --- (g) more than one ctx.commands.execute call ------------------------------
+# --- (g) more than one ctx.commands.execute call in one function --------------
+# Counted per function body (the count restarts at each def), skipping comment
+# lines, trailing comments and docstrings. Two commands in one file that each
+# make one helper lookup are not a chain.
 case "$REL" in
   *.py)
-    EXEC_CALLS="$(grep -v '^[[:space:]]*#' "$FILE_PATH" 2>/dev/null | grep -c 'ctx\.commands\.execute')"
+    EXEC_CALLS="$(awk '
+      {
+        line = $0
+        quotes = gsub(/"""/, "", line) + gsub(/\047\047\047/, "", line)
+        if (in_doc) { if (quotes % 2 == 1) in_doc = 0; next }
+        if (quotes % 2 == 1) { in_doc = 1; next }
+        if (quotes > 0) next
+        if (line ~ /^[[:space:]]*#/) next
+        sub(/[[:space:]]#.*$/, "", line)
+        if (line ~ /^[[:space:]]*(async[[:space:]]+)?def[[:space:]]/) n = 0
+        if (line ~ /ctx\.commands\.execute/) { n++; if (n > max) max = n }
+      }
+      END { print max + 0 }
+    ' "$FILE_PATH" 2>/dev/null)"
     if [ "${EXEC_CALLS:-0}" -gt 1 ]; then
-      printf 'post-edit: %s has %s ctx.commands.execute calls — a multi-step flow belongs in a pipeline (pipelines: in huitzo.yaml, one stage per step); nested calls are not recorded as steps on the run page\n' \
+      printf 'post-edit: %s has %s ctx.commands.execute calls in one function — check whether they are chained (one result feeds the next call): a chained multi-step flow belongs in a pipeline (pipelines: in huitzo.yaml, one stage per step), because nested calls are not recorded as steps on the run page; separate helper lookups are fine\n' \
         "$REL" "$EXEC_CALLS" >&2
     fi
     ;;

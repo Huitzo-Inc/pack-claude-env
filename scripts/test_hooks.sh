@@ -112,7 +112,22 @@ write_cmd single.py 'async def run(args, ctx):' '    # ctx.commands.execute("old
   '    return await ctx.commands.execute("lookup", {})'
 post_edit "single ctx.commands.execute" single.py
 expect_stderr_lacks "no pipeline nudge for one helper call" "belongs in a pipeline"
-rm -f "$CMD_DIR/model_http.py" "$CMD_DIR/data_http.py" "$CMD_DIR/model_llm.py" "$CMD_DIR/chain.py" "$CMD_DIR/single.py"
+write_cmd two_commands.py 'async def first(args, ctx):' '    return await ctx.commands.execute("lookup-a", {})' \
+  '' 'async def second(args, ctx):' '    return await ctx.commands.execute("lookup-b", {})'
+post_edit "two commands with one ctx.commands.execute each" two_commands.py
+expect_stderr_lacks "no pipeline nudge for separate commands in one file" "belongs in a pipeline"
+write_cmd documented.py 'async def run(args, ctx):' '    """Look up the rate.' '' \
+  '    Replaces the old ctx.commands.execute("extract") then ctx.commands.execute("assess") flow.' '    """' \
+  '    rate = await ctx.commands.execute("lookup", {})  # not a second ctx.commands.execute call' '    return rate'
+post_edit "ctx.commands.execute named in a docstring and a trailing comment" documented.py
+expect_stderr_lacks "no pipeline nudge for docstring and comment mentions" "belongs in a pipeline"
+write_cmd second_chain.py 'async def lookup(args, ctx):' '    return await ctx.commands.execute("lookup", {})' \
+  '' 'async def run(args, ctx):' '    a = await ctx.commands.execute("extract", {})' \
+  '    return await ctx.commands.execute("assess", a)'
+post_edit "chain in the second function of a file" second_chain.py
+expect_stderr_contains "counts calls per function" "has 2 ctx.commands.execute calls in one function"
+rm -f "$CMD_DIR/model_http.py" "$CMD_DIR/data_http.py" "$CMD_DIR/model_llm.py" "$CMD_DIR/chain.py" "$CMD_DIR/single.py" \
+  "$CMD_DIR/two_commands.py" "$CMD_DIR/documented.py" "$CMD_DIR/second_chain.py"
 
 echo "pre-stop.sh"
 printf 'def y():\n    return 2\n' >"$TMP/project/src/demo/commands/changed.py"

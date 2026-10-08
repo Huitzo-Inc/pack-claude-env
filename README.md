@@ -107,7 +107,7 @@ matching file is edited.
 Session context at start; a blocking secrets scan on writes (API keys, tokens, private keys);
 non-blocking nudges after edits (missing traceability header, hex colours in dashboards,
 `model=` on `ctx.llm`, a model-provider host in a file that uses `ctx.http`, more than one
-`ctx.commands.execute` call in a file, `dangerouslySetInnerHTML`, ruff findings); a summary of
+`ctx.commands.execute` call in one function, `dangerouslySetInnerHTML`, ruff findings); a summary of
 unheadered files when you stop. Outside a Huitzo project every hook exits immediately. The secrets scan skips JWT-shaped
 and generic `sk-…` examples in prose files (`.md`, `.mdx`, `.rst`, `.txt`) and honours
 `HUITZO_SECRETS_SCAN=warn` (report, never block) or `=off`. The seeded permission allowlist in
