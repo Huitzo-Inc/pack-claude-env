@@ -2,9 +2,9 @@
 name: huitzo-methodology
 description: >
   How to build, test, ship Packs/Dashboards: deterministic-first design,
-  sizing, composition, docs-first, testing pyramid, quality gates. Use when
-  planning/reviewing. Not signatures -> huitzo-sdk.
-argument-hint: "[topic: sizing, composition, testing, gates, review]"
+  sizing, composition, run-view authoring, docs-first, testing, gates. Use
+  when planning/reviewing. Not signatures -> huitzo-sdk.
+argument-hint: "[topic: sizing, composition, run-view, testing, gates, review]"
 ---
 
 > Verified against docs.huitzo.ai (2026-09).
@@ -21,10 +21,12 @@ An Intelligence Pack is a Python package of small, independently-testable
 **commands**. The split that makes this work: deterministic Python code owns
 every decision that can be computed or looked up; a model is called only
 where it adds judgment a lookup can't — drafting prose, summarizing,
-classifying ambiguous input. The platform records what ran (inputs,
-timing, correlation id) so behavior is auditable after the fact. A pack
-that calls a model for something a regex or a database query would answer
-just as well is a pack that skipped the easy, reliable part.
+classifying ambiguous input. The platform records what ran: each step's
+status, order and timing, and the usage of the model calls it made, under one
+correlation id. The run page in Huitzo Hub shows that record; it does not
+show a step's arguments or its output. A pack that calls a model for
+something a regex or a database query would answer just as well is a pack
+that skipped the easy, reliable part.
 
 ## The four pillars
 
@@ -38,8 +40,10 @@ just as well is a pack that skipped the easy, reliable part.
 ## Anatomy and size of a command
 
 A command is **30–750 lines**, single responsibility, named `verb-noun`
-(`analyze-claim`, `send-digest`, not `claims-processor`). Validated Pydantic
-input, structured output, one clear job.
+(`analyze-claim`, `send-digest`, not `claims-processor`). A Pydantic model for
+the args, a Pydantic model for the return value, one clear job. A command is
+one step; work with several steps is a pipeline of such commands (see
+"Run-view authoring").
 
 | Size | Lines | Notes |
 |---|---|---|
@@ -62,16 +66,81 @@ should be a deterministic rule, not something asked of the model).
 
 ## Composition — connecting commands
 
-| Mechanism | Model | Use when |
-|---|---|---|
-| Intra-pack call (`ctx.commands.execute(...)`) | Sync, request→response | One command needs another's result, same pack |
-| Pipeline (manifest `pipelines:` + execute endpoint) | Declarative, ordered stages | Data flows through a fixed sequence of transformations |
-| Cross-pack call | Sync, crosses pack boundary | Calling into another pack's commands (requires the `commands:execute:<@scope/pack>` grant) |
+| Mechanism | Model | Use when | Shows on the run page? |
+|---|---|---|---|
+| Intra-pack call (`ctx.commands.execute(...)`) | Sync, request→response | One command needs a small result from another, same pack | **No.** Nested calls are not recorded as steps; the page shows the calling command as one step |
+| Pipeline (manifest `pipelines:` + execute endpoint) | Declarative, ordered stages | Data flows through a fixed sequence of steps | **Yes.** One step per stage, in order |
+| A command that runs exactly one pipeline through `ctx.pipeline` | A plain command in front of the stages | Callers need a command (a dashboard `useCommand`, an MCP tool) to start multi-step work | **Yes.** The pipeline's stages; the command is the page header |
+| A command that runs two or more pipelines | — | Avoid: split it into one command per pipeline | **One step**: the command. The stages are only on each pipeline's own run |
+| Cross-pack call | Sync, crosses pack boundary | Calling into another pack's commands (requires the `commands:execute:<@scope/pack>` grant) | **No.** A call started inside a step is not recorded as a step |
 
 Pipelines are **data, not glue code** — the chain of stages lives in the
 manifest, each stage is an independently-testable command, and the platform
 runs the chain end-to-end. Not every stage needs a model: a risk-assessment
 stage that is pure rules is a legitimate, model-free pipeline stage.
+
+`ctx.commands.execute` is for a helper lookup inside one step. A command that
+chains several `ctx.commands.execute` calls is a pipeline written as glue
+code: the run page shows it as a single step, with every model call the
+nested commands made listed on that one step.
+
+## Run-view authoring
+
+The run page shows one run: its steps, each step's status, order and timing,
+and the usage of the model calls each step made. It is built from what the
+platform records at a stage boundary. It does not read your code, so the
+shape of the pack decides what a reader can see. Eight rules:
+
+1. **A step is a unit, not a helper function.** Make a stage where the work
+   has its own failure mode, an external effect or a model call. Work that is
+   never reported on separately stays as code inside a neighbouring stage. A
+   stage per helper fills the page with rows that cannot fail on their own.
+2. **Every model call happens inside a stage, through `ctx.llm`.** A command
+   that composes a pipeline makes no model call itself and runs exactly one
+   pipeline. A call the composing command makes can land on the first stage
+   or be listed apart as unattributed. A second pipeline collapses the page
+   back to one step. A call to a model-provider host through `ctx.http` never
+   appears at all.
+3. **Retries and fallbacks stay inside the stage that owns them.** Pipelines
+   fail fast: the first stage to raise ends the run and later stages are
+   skipped, so a fallback written as its own stage never runs. Catch the
+   specific error inside the stage and return a result the next stage
+   accepts.
+4. **No model-call mark means the deterministic path ran.** The page records
+   that a stage made a model call, not which route the stage took or why. If
+   a stage calls a model only in some cases, say which in its command doc, so
+   a reader can interpret a run where the mark is absent.
+5. **Name stages as short verbs.** Stage names are the labels on the page:
+   `extract`, `assess`, `decide`. The stage name is set per stage in the
+   manifest, separately from the `verb-noun` command it runs.
+6. **Type every stage and test the chain.** A stage's output becomes the next
+   stage's input, validated against that stage's args model. Give each stage
+   an args model and a return model, and have each return model carry forward
+   everything later stages need. `huitzo pack validate --strict` fails on a
+   stage ref that names no command in the pack and on a return model that
+   does not fit the next stage's args model. It does not check refs into
+   another pack or the stages around a parallel block, so the pack's tests
+   still run the chain (the `testing` rule has the pattern).
+7. **Check caller input before the pipeline when the error type matters.** A
+   stage that raises reaches the caller as `PipelineError`, not as the
+   stage's own error. If the caller should get a `ValidationError` for a bad
+   field, raise it in the composing command before the pipeline starts. That
+   check makes no model call.
+8. **Stage commands are public, and what they store is visible.** A stage is
+   a registered command: anyone who can run the pack can call it directly, so
+   give every input field its full limits (`max_length`, ranges, enums). A
+   failed stage's error message and the last stage's output are stored with
+   the run and readable by the people the run is visible to. Error messages
+   name the field and the fix; they never repeat user text.
+
+A pipeline declared in the manifest and run through the pipeline endpoint is
+the simplest shape that follows all eight. Put a composing command in front
+only when a caller needs a plain command.
+
+**Not shown on the run page today:** commands and pipelines started from
+inside a step; which route a step chose; outbound HTTP calls; approvals; the
+stages of a pipeline that is still running (they appear when it finishes);
+work a composing command does outside the one pipeline it runs.
 
 ## Governance: the Policy Card
 
@@ -166,7 +235,10 @@ one, that logic belongs in a pack command.
 
 - [ ] Doc exists in `docs/` before the code that implements it
 - [ ] Traceability header present and accurate
-- [ ] Command(s) sized 30–750 lines, single responsibility, `verb-noun`
+- [ ] Command(s) sized 30–750 lines, single responsibility, `verb-noun`,
+      typed args model and typed return model
+- [ ] Multi-step work is a pipeline of verb-named, typed stages with a
+      stage-chain test; every model call is `ctx.llm` inside a stage
 - [ ] `policy:` and `permissions:` request the minimum needed
 - [ ] Tests cover the pyramid's fast layers; sandbox/e2e for the risky path
 - [ ] All quality gates pass locally
@@ -182,6 +254,11 @@ one, that logic belongs in a pack command.
   have explicit timeouts
 - **Simplicity** — could this command be smaller, or is it two commands
   wearing one name?
+- **Run-view authoring** — is multi-step work a pipeline of verb-named, typed
+  stages with a chain test? A command built from a chain of
+  `ctx.commands.execute` calls, or one that makes several model calls inline,
+  should become a pipeline. Does any `ctx.http` call reach a model-provider
+  host? Does any error message repeat user text?
 
 ## Five developer-constitution principles
 
@@ -225,6 +302,14 @@ runnable, offline-testable examples, one tier at a time:
 | ❌ Test that the platform works (auth, RLS, retries) | Test *your* logic with a mocked `Context`; trust the platform's own tests for its own guarantees |
 | ❌ Hardcode a model name in a command | Use a configured LLM profile so the deployment controls the model |
 | ❌ Compute a business decision in the dashboard | Compute it in a command; the dashboard renders the result |
+| ❌ One command that makes three model calls in a row | One pipeline, one stage per unit of work; the run page then shows three steps |
+| ❌ A multi-step flow written as a chain of `ctx.commands.execute` calls | Declare the chain under `pipelines:`; nested calls are not recorded as steps |
+| ❌ Calling a model provider's API through `ctx.http` | `ctx.llm` with a profile; a model call through `ctx.http` is invisible on the run page |
+| ❌ A composing command that also calls `ctx.llm`, or runs two pipelines | The command checks input and runs one pipeline; every model call is in a stage |
+| ❌ A `fallback` stage after the stage that may fail | Handle the failure inside the stage; later stages are skipped once one raises |
+| ❌ Stages named after their commands (`classify-objective-stage`) or as `stage_1` | Short verbs: `classify`, `draft`, `assemble` |
+| ❌ A stage that returns an untyped `dict` | A return model that carries forward what later stages need, plus a chain test |
+| ❌ `message=f"Unknown profile: {args.profile_id}"` | Name the field and the fix; never repeat user text in an error |
 
 ## Read more
 

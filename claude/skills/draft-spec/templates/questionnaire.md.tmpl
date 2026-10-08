@@ -53,6 +53,7 @@
 - Is there a sandbox/test environment?
 
 ### For ctx.llm usage
+- Does any external API in the list above belong to a model provider? If so, drop it: model calls go through `ctx.llm` only, never `ctx.http`.
 - What model capabilities needed? (text gen, structured output, analysis, vision)
 - What is the expected prompt complexity?
 - Can results be cached?
@@ -65,6 +66,17 @@
 - What does the return value look like? (JSON structure with types)
 - What errors can occur? (SDK exception type, condition, user action)
 - What is a reasonable timeout?
+- Is this one step or several? Several steps → fill in the stage questions below.
+
+### For each multi-step command (one pipeline of stages)
+- What are the stages, in order? Name each with a short verb (the label on the run page).
+- Which `verb-noun` command does each stage run?
+- What is each stage's input model and output model? What must each output carry forward for later stages?
+- Which stages call a model (through `ctx.llm`), how many times, and in which cases not at all?
+- What retry or fallback does each stage have? (It stays inside the stage: a pipeline stops at the first stage that raises.)
+- What errors can each stage raise?
+- Which caller input must be checked before the pipeline starts, so the caller gets a specific error type?
+- If a stage is never reported on separately (no failure mode, external effect or model call of its own), should it be code inside a neighbouring stage?
 
 ### Storage
 - What data needs to persist between command calls?

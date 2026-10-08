@@ -98,7 +98,7 @@ Dashboard source files use JSDoc-style traceability:
 ## Validation
 
 The CLI does **not** check traceability headers — `huitzo pack validate
---strict` checks the manifest, pipeline permissions, and package layout;
+--strict` checks the manifest, pipeline permissions, stage refs and types, and package layout;
 `huitzo dashboard validate` checks the manifest and bundle exports. Neither
 looks at header content. The real enforcement is this environment's
 `post-edit`/`pre-stop` hooks, which nudge (non-blocking) whenever a matching

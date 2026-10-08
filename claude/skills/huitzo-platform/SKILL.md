@@ -135,6 +135,24 @@ full result inline; medium/long dispatches and returns a `task_id` to poll
 like a command. See `huitzo-methodology` for when to reach for a pipeline
 instead of a single command.
 
+**What the run page shows.** Every run has a `correlation_id`; the run page
+in Huitzo Hub shows that run's steps with their status, order and timing,
+and the usage of the model calls each step made. It does not show arguments
+or output.
+
+| What was run | Steps on the page |
+|---|---|
+| A plain command | One step: the command, with all its model calls |
+| A pipeline through this endpoint | One step per stage, labelled with the stage name |
+| A command that runs exactly one pipeline (`ctx.pipeline`) | That pipeline's stages; the command is the page header |
+| A command that runs two or more pipelines | One step: the command |
+
+Stages are recorded when the pipeline finishes, so a running pipeline shows
+no stages yet. Commands called from inside a step (`ctx.commands.execute`)
+and model calls made through `ctx.http` are not shown. A failed stage's
+error message and the last stage's output are stored with the run and
+readable by the people the run is visible to.
+
 ## Rate limiting
 
 ```http

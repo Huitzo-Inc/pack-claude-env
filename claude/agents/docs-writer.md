@@ -49,8 +49,12 @@ sibling ordering within a category; use the next free integer.
 3. **Draft the doc.** For a command: overview, arguments (type, required,
    default, validation), return shape, every error it can raise and what
    the user should do about it, at least one real input/output example,
-   and the `ctx.*` services it uses. For a component: props, the commands
-   it calls, behavior, and states (loading/error/empty/populated).
+   and the `ctx.*` services it uses. For multi-step work: a stage table
+   (stage, command, input model, output model, model calls, retries or
+   fallback, errors) — it is the document the run page is read against, so
+   say for each stage when it calls a model and when it does not. For a
+   component: props, the commands it calls, behavior, and states
+   (loading/error/empty/populated).
 4. **Update the category README** (`docs/commands/README.md`, etc.) so the
    new doc is discoverable, not just present on disk.
 5. **Code implements the doc**, never the other way around — if you're
@@ -64,7 +68,7 @@ Every code block in a doc is illustrative, never copy-paste-ready:
 ```python
 # pseudocode — shows the pattern, not a working file
 @command("verb-noun", namespace="pack")
-async def verb_noun(args: Args, ctx: Context) -> dict:
+async def verb_noun(args: Args, ctx: Context) -> Result:
     ...
 ```
 

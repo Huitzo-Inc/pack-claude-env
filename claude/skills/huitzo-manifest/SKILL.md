@@ -236,6 +236,38 @@ stages], joiner: stage}`, `checkpoint_after`.
 - `@scope/pack:namespace:command` — cross-pack; requires a matching
   `commands:execute:<@scope/pack>` permission naming the same target.
 
+**Stages and the run page.** The run page shows one step per stage, in
+order, labelled with the stage `name`, with the model calls that stage made.
+
+- `name` is the label: a short verb (`extract`, `assess`, `decide`). It is
+  set per stage, separately from the `verb-noun` command it runs.
+- A stage is a unit with its own failure mode, external effect or model
+  call. Do not add a stage per helper function.
+- `error_strategy` is `fail_fast` only: the first stage to raise ends the
+  run and later stages are skipped. A fallback cannot be its own stage.
+- Every stage command needs a typed args model and a typed return model; a
+  stage's output is validated against the next stage's args model.
+- `huitzo pack validate` reports a stage ref that names no command in this
+  pack, and a stage whose return model does not fit the next stage's args
+  model. Both are warnings, and `--strict` turns warnings into failures, so
+  run `huitzo pack validate --strict` before publishing. Cross-pack refs and
+  the stages around a parallel block's joiner are checked only when the
+  pipeline runs; cover them with a stage-chain test.
+
+```yaml
+pipelines:
+  claim-intake:
+    description: "Extract the claim, assess its risk, decide the route."
+    timeout: 170
+    stages:
+      - name: extract
+        command: "claims:extract-claim"
+      - name: assess
+        command: "claims:assess-risk"
+      - name: decide
+        command: "claims:decide-route"
+```
+
 ## `resources:` (pack-level) and `deployment:`
 
 `resources`: `min_memory_mb` (default 256), `recommended_memory_mb` (default
@@ -336,6 +368,9 @@ hand-edit it; edit `huitzo.yaml` and re-run `huitzo pack sync`.
 | A manifest with `permissions: [llm:complete]` and no `policy:` block ❌ | `policy:` is required on every manifest — add the card (`autonomy`, `allowed_actions`, `data_scope`). |
 | `permissions: [ssh:execute]` with no `services.ssh`/`ssh_targets` ❌ | Every permission needs its backing declaration — add `services.ssh` and a non-empty `ssh_targets.allowed`. |
 | `services: {llm: {models: ["gpt-4"]}}` ❌ | `services.llm` is model-agnostic — no model names anywhere; use `requirements`/`profiles`. |
+| `services: {http: {allowed_domains: ["api.openai.com"]}}` ❌ | Never allow a model-provider host. Model calls go through `ctx.llm` (`llm:complete` + `services.llm`); through `ctx.http` they are invisible on the run page. |
+| Stages named `stage_1`, or after their command (`extract-claim-stage`) ❌ | A short verb per stage (`extract`) — it is the step label on the run page. |
+| A `fallback` stage after the stage that may fail ❌ | Handle the failure inside the stage; `fail_fast` skips every later stage. |
 | `mcp_servers: [{name: x, type: stdio, command: ["npx", "-y", "@acme/mcp-server"]}]` ❌ | Pin a version: `"@acme/mcp-server@1.4.2"`. |
 | `schedule: "*/5 * * * *"` ❌ | Every 15 minutes is the floor — use `"*/15 * * * *"` or wider. |
 | Any stray top-level or nested key not in the tables above ❌ | Remove it — every model is `extra="forbid"`; unknown keys fail the load. |

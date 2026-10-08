@@ -87,11 +87,65 @@ async def test_calls_llm() -> None:
     ctx.llm.complete.return_value = "the answer"
     result = await analyze_text({"text": "hi"}, ctx)
     ctx.llm.complete.assert_awaited_once()
-    assert result["answer"] == "the answer"
+    assert result.summary == "the answer"      # a typed return model, not a dict
 ```
 
 `ctx.files.list()` returns `list[dict]`, never `list[str]` — stub it as
 dicts (`[{"name": "a.json"}, ...]`), not bare filenames.
+
+## Pattern 4 — stage chain (every pack with a `pipelines:` block)
+
+A stage's output becomes the next stage's input. Test the chain from the
+manifest, not from a list you keep by hand, so the test fails when the
+manifest and the code drift apart:
+
+```python
+import importlib
+from pathlib import Path
+from typing import Any
+
+from huitzo_sdk.manifest import load_manifest
+from huitzo_sdk.pipeline import StageSpec
+
+from claims.models import AssessedClaim, ExtractArgs, ExtractedClaim
+
+MANIFEST = load_manifest(Path(__file__).parent.parent / "huitzo.yaml")
+PIPELINE = MANIFEST.pipelines.root["claim-intake"]
+ENTRY_POINTS = {
+    f"{MANIFEST.pack.namespace}:{c.name}": c.entry_point for c in MANIFEST.commands
+}
+# The args model each stage takes, in pipeline order.
+STAGE_ARGS = [ExtractArgs, ExtractedClaim, AssessedClaim]
+
+def load_stage(ref: str) -> Any:
+    module, _, func = ENTRY_POINTS[ref].partition(":")
+    return getattr(importlib.import_module(module), func)
+
+def test_stage_order_and_refs() -> None:
+    assert [stage.name for stage in PIPELINE.stages] == ["extract", "assess", "decide"]
+    for stage in PIPELINE.stages:
+        assert isinstance(stage, StageSpec)
+        assert stage.command in ENTRY_POINTS      # every ref is a declared command
+
+async def test_each_output_is_the_next_input() -> None:
+    ctx = make_mock_ctx()
+    ctx.llm.complete.return_value = ExtractedClaim(amount=120.0, category="travel")
+    current: dict[str, Any] = {"text": "Taxi to the airport, 120 EUR"}
+    for stage, args_model in zip(PIPELINE.stages, STAGE_ARGS, strict=True):
+        args_model.model_validate(current)        # the contract: previous output fits here
+        result = await load_stage(stage.command)(current, ctx)
+        current = result.model_dump()             # what the platform hands to the next stage
+    assert current["route"] == "auto-approve"
+```
+
+Also worth one test each: the longest allowed inputs survive the whole
+chain; a stage whose model call fails still returns a result the next stage
+accepts (its fallback lives inside the stage); a composing command raises
+its `ValidationError` for bad caller input **before** any pipeline starts
+(`ctx.pipeline.create.assert_not_called()`).
+
+`huitzo pack validate --strict` checks stage refs and stage-to-stage types
+inside one pack. It does not run the stages, so this test is still needed.
 
 ## Testing storage without a real backend
 
@@ -131,9 +185,10 @@ token, `extra="forbid"` violations) before `huitzo pack validate` does.
 ## What NOT to test
 
 Don't test the platform: timeout enforcement, retry/backoff, queue dispatch,
-the stale-execution reaper, SSRF blocking, DDL rejection, or anything else
-the SDK itself already guarantees. Test *your* command logic — what it does
-with a given `args`/`ctx`, and what it raises when a dependency fails.
+the stale-execution reaper, SSRF blocking, DDL rejection, how a pipeline is
+executed or recorded, or anything else the SDK itself already guarantees.
+Test *your* command logic — what it does with a given `args`/`ctx`, what it
+raises when a dependency fails, and that your stages fit together.
 
 ## Running tests
 
@@ -143,4 +198,5 @@ pytest -v                 # direct invocation
 pytest --cov=src/ --cov-report=term-missing -v   # with coverage
 ```
 
-Every command function should have at least one test.
+Every command function should have at least one test, and every pipeline a
+stage-chain test.

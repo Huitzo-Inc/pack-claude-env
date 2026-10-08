@@ -24,14 +24,19 @@ wins over this text: when in doubt, read it (see "Get more context").
 → `/sandbox` (run it for real) → `/publish`. When installed as a plugin the skills are prefixed:
 `/huitzo:add-command`. Code implements a documented contract; the doc comes first.
 
+The run page in Huitzo Hub shows one run's steps with their status, order, timing and model-call
+usage. Rules 2 and 3 decide what it can show: `/huitzo-methodology`, "Run-view authoring".
+
 ## Twelve rules that are never optional
 
 1. **Deterministic Python owns decisions; the model augments.** Compute, validate, gate and
    decide in code; ask `ctx.llm` for judgement, extraction or prose, then verify its output.
-2. **One command, one responsibility.** `verb-noun` names, 30–750 lines, Pydantic `BaseModel`
-   args with `Field(description=...)`, returns a `dict` or a Pydantic model.
-3. **Never name a model.** `ctx.llm.complete(prompt, profile="default")` — there is no `model=`
-   argument; profiles are configured by the platform.
+2. **One command is one step, or one pipeline of steps.** `verb-noun` names, 30–750 lines, a
+   Pydantic `BaseModel` for the args (`Field(description=...)`) and for the return value.
+   Multi-step work is a manifest `pipelines:` block of verb-named stages, each a typed command.
+3. **Model calls go through `ctx.llm` only, by profile.** `ctx.llm.complete(prompt,
+   profile="default")` — there is no `model=` argument; the platform configures profiles. Never
+   reach a model-provider host through `ctx.http`: that call is invisible on the run page.
 4. **Everything through `ctx`.** `ctx.http` (HTTPS, manifest domain allowlist), `ctx.storage`
    (`save`/`get`, scope `user` or `tenant`), `ctx.files`, `ctx.secrets` (**async**: `await
    ctx.secrets.require("KEY")`), `ctx.log` (sync). Never raw `requests`, `open()`, `print()`.
@@ -63,12 +68,12 @@ wins over this text: when in doubt, read it (see "Get more context").
 | `ctx.` | Purpose | Note |
 |---|---|---|
 | `llm` | `complete` / `chat` / `stream`, structured output via `schema=` | `profile=`, never `model=` |
-| `http` | `get` / `post` / `put` / `delete` | HTTPS only; domains from the manifest |
+| `http` | `get` / `post` / `put` / `delete` | HTTPS only; domains from the manifest; never a model host |
 | `storage` | `save` / `get` / `delete` / `exists` / `list` / `query` (+ `_many`) | `tenant` scope is shared across packs |
 | `files` | `read` / `write` / `list` / `exists` / `get_url` (+ Excel/CSV/JSON readers) | user file storage |
 | `secrets` | `require` / `get` / `exists` | all async |
 | `email`, `telegram`, `tts`, `ssh`, `db` | platform integrations | each needs a `services:` declaration |
-| `commands` | `execute(name, args)` — call another command in this pack | inline, depth-limited |
+| `commands` | `execute(name, args)` — call another command in this pack | inline, depth-limited; not a step on the run page |
 | `log` | `info` / `warning` / `error` | sync; kwargs are scrubbed |
 
 ## Get more context (in this order of trust)
@@ -99,6 +104,7 @@ wins over this text: when in doubt, read it (see "Get more context").
 ## What this environment does automatically
 
 Hooks (only inside Huitzo projects): print project context at session start, block writes that
-contain credential-shaped strings, warn about missing traceability headers, hex colours and
-`model=` after edits, and summarise unheadered files when you stop. Agents: `pack-developer`,
+contain credential-shaped strings, warn after edits about missing traceability headers, hex
+colours, `model=`, a model-provider host next to `ctx.http` and repeated `ctx.commands.execute`
+calls, and summarise unheadered files when you stop. Agents: `pack-developer`,
 `pack-reviewer`, `dashboard-developer`, `dashboard-reviewer`, `docs-writer`, `spec-architect`.

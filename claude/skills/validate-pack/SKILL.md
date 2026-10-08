@@ -40,7 +40,13 @@ Validate the Intelligence Pack's structure and quality.
       service (see the permission↔service table in the `pack-manifest` rule)
       and is also present in `policy.allowed_actions`.
 
-   e. **Lint/type check**, if the tools are installed:
+   e. **Pipeline stages**, if the manifest has a `pipelines:` block. Every
+      stage `command` ref (`namespace:command`) names a command declared
+      under `commands:`; every stage command has a Pydantic args model and a
+      Pydantic return model; each stage's return model carries every field
+      the next stage's args model requires.
+
+   f. **Lint/type check**, if the tools are installed:
 
       ```bash
       ruff check .
@@ -50,13 +56,23 @@ Validate the Intelligence Pack's structure and quality.
 3. **Checks the CLI does *not* do — verify these yourself, every time.**
    `huitzo pack validate --strict` never inspects header content (checked by
    running the real validator, not by reading its source): it stops at
-   manifest/entry-point/permission checks. Traceability headers are enforced
-   only by this environment's `post-edit`/`pre-stop` hooks, non-blocking:
+   manifest/entry-point/permission checks and the pipeline stage checks.
+   Traceability headers are enforced only by this environment's
+   `post-edit`/`pre-stop` hooks, non-blocking:
 
    a. **Traceability headers.** Every `.py` file under `src/` and `tests/` has
       a module docstring with an `Implements:` block pointing at a
       `docs/commands/*.md` file that exists. Quick check:
       `grep -rL "Implements:" --include='*.py' src/ tests/` (empty output = every file has one).
+
+   b. **Run-view authoring.** The CLI checks stage refs and stage-to-stage
+      types inside one pack; it does not check the rest. Confirm: stage names
+      are short verbs; a stage-chain test exists (see the `testing` rule); no
+      model-provider host in `services.http.allowed_domains` or in a
+      `ctx.http` URL; no command chains several `ctx.commands.execute` calls
+      where a pipeline belongs. Quick checks:
+      `grep -rn "ctx\.commands\.execute" src/` and `grep -rn "ctx\.llm\." src/`
+      (every model call should sit in a stage command).
 
 4. **Report as a checklist:**
 
@@ -65,7 +81,9 @@ Validate the Intelligence Pack's structure and quality.
    Entry points               ✓ 3/3 resolve
    Namespace match             ✓ consistent
    Permission backing          ✓ consistent
+   Pipeline stages             ✓ 3/3 refs resolve, types fit
    Linting (ruff)               ✓ no issues
    Type checking (mypy)         ✗ 2 errors (list them)
    Traceability headers        ✓ 6/6 files  (self-checked — not run by the CLI)
+   Run-view authoring          ✓ verb stage names, chain test present  (self-checked)
    ```
