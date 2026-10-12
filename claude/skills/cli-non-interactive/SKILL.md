@@ -250,7 +250,7 @@ publishing if you need something other than the default.
 | ❌ Parsing the human-readable table output of `pack list` | `huitzo --output json pack list` and parse `.data` |
 | ❌ `huitzo pack add-command --queue default` | `--queue fast\|medium\|long` |
 | ❌ `huitzo login` with `--password` or a literal on the command line | `HUITZO_PASSWORD` env var, or the hidden prompt |
-| ❌ Assuming `huitzo pack install my-pack` installs from a registry | Build (`pack build`) and install the local `.whl` by path |
+| ❌ `huitzo pack install my-pack` or `huitzo pack list --local` (the CLI has no install command) | Run a pack locally with `pack dev`, `pack exec --local` or `sandbox start`; ship it with `pack build` then `pack publish` |
 | ❌ Treating `huitzo secrets` as where a deployed pack's user secrets live | It's a local dev store only; the pack's `ctx.secrets` never sees it |
 
 ## Read more
