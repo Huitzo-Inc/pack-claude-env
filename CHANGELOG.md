@@ -3,6 +3,24 @@
 All notable changes to the Huitzo developer environment. Versions follow the
 plugin manifest (`.claude-plugin/plugin.json`).
 
+## 2.3.0 — 2026-10
+
+Discovery: find what to build from how you already use Claude Code.
+
+### Added
+- `/huitzo-discover`: a workflow skill plus a stdlib-only local scanner
+  (`scripts/discover.py`).
+  - `scan` reads `~/.claude/projects` transcripts and, if present, the
+    `/insights` session facets. It clusters recurring job templates and
+    measures each one's runs, cost per run at API list price (deduplicated
+    per response), active minutes and origin. Everything it writes is
+    redacted.
+  - The skill gives each candidate a verdict (`pack`, `pack+dashboard`,
+    `skill`, `keep-agentic`, `noise`), sketches the pack in deterministic
+    steps and model steps, and writes estimates.
+  - `roi` turns those estimates into monthly model-cost savings, hours saved,
+    build cost and payback.
+
 ## 2.2.0 — 2026-10
 
 Run-view authoring: the environment now teaches and checks the pack shape

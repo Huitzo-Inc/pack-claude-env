@@ -72,6 +72,7 @@ worked examples). Everything else loads on demand.
 
 | Skill | Scope | Does |
 |---|---|---|
+| `/huitzo-discover` | both | mine your local Claude Code history for recurring work, judge which of it should be a Pack (+ Dashboard), sketch it and estimate the ROI; runs locally and redacts before writing |
 | `/draft-spec <name>` | both | 7-phase requirements gathering → `docs/spec/`, with a stage table for multi-step work |
 | `/draft-docs <verb-noun>` | pack | write the command contract (and its stage table) before code |
 | `/add-command <verb-noun>` | pack | scaffold command, args and return models, test, manifest entry, pipeline stage entry (uses `huitzo pack add-command` when available) |

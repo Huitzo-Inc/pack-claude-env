@@ -41,7 +41,9 @@
       "claude/skills/validate-pack/SKILL.md",
       "claude/skills/sandbox/SKILL.md",
       "claude/skills/publish/SKILL.md",
-      "claude/skills/lint-and-fix/SKILL.md"
+      "claude/skills/lint-and-fix/SKILL.md",
+      "claude/skills/huitzo-discover/SKILL.md",
+      "claude/skills/huitzo-discover/scripts/discover.py"
     ],
     "exclude": [
       "claude/agents/dashboard-developer.md",

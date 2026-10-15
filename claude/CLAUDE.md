@@ -6,7 +6,7 @@ React). The Huitzo developer environment lives in `.claude/`:
 - `.claude/rules/00-huitzo-core.md` — the always-on core: project detection, the docs-first loop,
   the twelve non-negotiable rules, the `ctx` services table, and where to get more context.
   **Read it first.** Other rules load automatically when you edit matching files.
-- `.claude/skills/` — workflow skills (`/draft-spec`, `/draft-docs`, `/add-command`,
+- `.claude/skills/` — workflow skills (`/huitzo-discover`, `/draft-spec`, `/draft-docs`, `/add-command`,
   `/scaffold-dashboard`, `/test-pack`, `/test-dashboard`, `/validate-pack`, `/validate-dashboard`,
   `/lint-and-fix`, `/sandbox`, `/publish`, `/dashboard-dev`, `/dashboard-e2e`, `/huitzo-init`) and
   reference skills (`/huitzo-sdk`, `/huitzo-manifest`, `/huitzo-dashboard-sdk`,
